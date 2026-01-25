@@ -1,0 +1,203 @@
+/**
+ * Custom Toolbox Styles - Design MakeCode
+ */
+
+/* ==============================================
+   FIX CRITIQUE: Décalage de 60px du flyout
+   Blockly réserve 60px pour une toolbox fantôme
+   On compense avec un translateX négatif
+   ============================================== */
+.blocklyFlyout {
+    transform: translateX(-60px) !important;
+}
+
+/* ==============================================
+   FIX: Cacher le flyout quand il est "fermé"
+   Blockly laisse le flyout visible avec width=33px
+   (la scrollbar) même quand il est vide
+   ============================================== */
+.blocklyFlyout[width="33"] {
+    display: none !important;
+}
+
+/* === Conteneur principal === */
+#customToolbox {
+    width: 240px;
+    background-color: #f3f3f3;
+    border-right: 1px solid #d3d3d3;
+    overflow-y: auto;
+    overflow-x: hidden;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    padding: 8px 0 80px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Feedback visuel quand on glisse un bloc au-dessus */
+#customToolbox.drop-target {
+    background-color: #fee2e2;
+    box-shadow: inset 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+/* === Cacher la toolbox native de Blockly === */
+.blocklyToolboxDiv {
+    display: none !important;
+}
+
+/* === Section Header === */
+.custom-toolbox-section-header {
+    padding: 10px 16px;
+    background-color: #2d3748;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.2s ease;
+    user-select: none;
+    margin: 4px 8px;
+    border-radius: 6px;
+}
+
+.custom-toolbox-section-header:hover {
+    background-color: #1a202c;
+}
+
+.section-toggle-icon {
+    font-size: 10px;
+    transition: transform 0.2s ease;
+}
+
+.section-label {
+    flex: 1;
+}
+
+/* === Conteneur de section === */
+.custom-toolbox-section-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 8px;
+    transition: all 0.3s ease;
+}
+
+/* === Boutons de catégorie === */
+.custom-toolbox-category {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    background-color: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.custom-toolbox-category:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    transform: translateX(2px);
+}
+
+.custom-toolbox-category.active {
+    background-color: rgba(0, 0, 0, 0.08);
+}
+
+.custom-toolbox-category.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 24px;
+    background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
+    border-radius: 0 2px 2px 0;
+}
+
+/* === Icône de catégorie === */
+.category-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.custom-toolbox-category:hover .category-icon {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    transform: scale(1.05);
+}
+
+/* === Label de catégorie === */
+.category-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* === Scrollbar === */
+#customToolbox::-webkit-scrollbar {
+    width: 8px;
+}
+
+#customToolbox::-webkit-scrollbar-track {
+    background: #f3f3f3;
+}
+
+#customToolbox::-webkit-scrollbar-thumb {
+    background: #c4c4c4;
+    border-radius: 4px;
+}
+
+#customToolbox::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* === Animation === */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.custom-toolbox-category {
+    animation: slideIn 0.2s ease;
+}
+
+/* === Responsive === */
+@media (max-width: 768px) {
+    #customToolbox {
+        width: 200px;
+    }
+    
+    .custom-toolbox-category {
+        height: 40px;
+    }
+    
+    .category-label {
+        font-size: 13px;
+    }
+    
+    .category-icon {
+        width: 20px;
+        height: 20px;
+    }
+}

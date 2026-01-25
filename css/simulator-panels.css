@@ -1,0 +1,1495 @@
+/**
+ * CSS pour les panneaux de simulateurs
+ * Structure modulaire et facile à maintenir
+ */
+
+/* ==================== CONTENEUR PRINCIPAL ==================== */
+#simulatorsContainer {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    gap: 2px;
+    padding: 4px;
+}
+
+/* ==================== PANNEAU SIMULATEUR ==================== */
+.sim-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 50px;
+    background: rgba(15, 23, 42, 0.6);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: flex 0.2s ease, opacity 0.2s ease;
+    position: relative;
+}
+
+.sim-panel.collapsed {
+    flex: 0 0 auto !important;
+    min-height: auto;
+}
+
+.sim-panel.collapsed .sim-panel-content {
+    display: none;
+}
+
+.sim-panel.collapsed .sim-panel-resize {
+    display: none;
+}
+
+/* ==================== HEADER DU PANNEAU ==================== */
+.sim-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(51, 65, 85, 0.9) 100%);
+    border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+    cursor: default;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+/* Bouton collapse */
+.collapse-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: rgba(59, 130, 246, 0.2);
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.collapse-btn:hover {
+    background: rgba(59, 130, 246, 0.4);
+    color: #e2e8f0;
+}
+
+.collapse-btn svg {
+    transition: transform 0.2s ease;
+}
+
+.collapse-btn.collapsed svg {
+    transform: rotate(-90deg);
+}
+
+/* Icône du simulateur */
+.sim-panel-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+/* Titre */
+.sim-panel-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e2e8f0;
+    flex: 1;
+}
+
+/* Indicateur de drag */
+.drag-hint {
+    font-size: 12px;
+    color: #475569;
+    letter-spacing: 2px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.sim-panel-header:hover .drag-hint {
+    opacity: 1;
+    color: #64748b;
+}
+
+/* ==================== CONTENU DU PANNEAU ==================== */
+.sim-panel-content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* ==================== BARRE DE RESIZE ==================== */
+.sim-panel-resize {
+    height: 8px;
+    background: transparent;
+    cursor: ns-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s;
+}
+
+.sim-panel-resize:hover {
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.resize-handle {
+    width: 40px;
+    height: 3px;
+    background: rgba(59, 130, 246, 0.3);
+    border-radius: 2px;
+    transition: all 0.2s;
+}
+
+.sim-panel-resize:hover .resize-handle {
+    background: rgba(59, 130, 246, 0.6);
+    width: 60px;
+}
+
+.sim-panel.resizing .sim-panel-resize {
+    background: rgba(59, 130, 246, 0.2);
+}
+
+.sim-panel.resizing .resize-handle {
+    background: #3b82f6;
+}
+
+/* ==================== DRAG & DROP ==================== */
+.sim-panel.dragging {
+    opacity: 0.5;
+    z-index: 1000;
+}
+
+.sim-panel.drop-before::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #3b82f6;
+    border-radius: 2px;
+    z-index: 10;
+}
+
+.sim-panel.drop-after::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #3b82f6;
+    border-radius: 2px;
+    z-index: 10;
+}
+
+/* ==================== CONTENU SPECIFIQUE CUTEBOT ==================== */
+.cutebot-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: rgba(15, 23, 42, 0.5);
+    border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.cutebot-controls .btn {
+    padding: 4px 8px;
+    font-size: 12px;
+    min-width: 32px;
+}
+
+.cutebot-controls .slider-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cutebot-controls .slider-container input[type="range"] {
+    width: 60px;
+    height: 4px;
+}
+
+.cutebot-controls .slider-container span {
+    font-size: 11px;
+    color: #94a3b8;
+    min-width: 35px;
+}
+
+.cutebot-canvas-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100px;
+    padding: 4px;
+}
+
+.cutebot-canvas-wrapper canvas {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 6px;
+}
+
+/* ==================== CONTENU SPECIFIQUE MICROBIT ==================== */
+.microbit-layout {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 8px;
+    flex: 1;
+    min-height: 120px;
+    overflow: hidden;
+}
+
+.microbit-controls-left {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+.controls-left-column {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.controls-right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    justify-content: flex-start;
+    padding-top: 0;
+}
+
+.controls-row {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    align-items: center;
+}
+
+.pads-row {
+    min-height: 70px;
+    align-items: flex-end;
+}
+
+.microbit-board-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 260px;
+    overflow: visible;
+    perspective: 500px;
+}
+
+.microbit-board-wrapper #microbitSimulator {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform-style: preserve-3d;
+    transition: transform 0.1s ease-out;
+}
+
+.microbit-board-wrapper #secondMicrobitSimulator {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform-style: preserve-3d;
+    transition: transform 0.1s ease-out;
+}
+
+.microbit-board-wrapper .microbit-board {
+    transform-style: preserve-3d;
+    transition: transform 0.1s ease-out;
+}
+
+.microbit-board-wrapper svg {
+    width: 100%;
+    height: 100%;
+    max-height: 200px;
+    object-fit: contain;
+}
+
+/* Groupe de slider vertical */
+.v-slider-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.v-slider-group label {
+    font-size: 12px;
+}
+
+.v-slider-group input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 6px;
+    height: 85px;
+    background: linear-gradient(to top, #334155, #475569);
+    border-radius: 3px;
+    writing-mode: vertical-lr;
+    direction: rtl;
+}
+
+.v-slider-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.4);
+}
+
+.v-slider-group input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+.v-slider-group .v-slider-val {
+    font-size: 9px;
+    color: #94a3b8;
+    text-align: center;
+    min-width: 28px;
+}
+
+/* Pad accéléromètre compact */
+.accel-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    flex-shrink: 0;
+    width: 50px;
+    margin: 0;
+    padding: 0;
+}
+
+.accel-group label {
+    font-size: 12px;
+    margin: 0 0 2px 0;
+}
+
+.accel-group .accel-pad {
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+    min-height: 50px;
+    max-width: 50px;
+    max-height: 50px;
+    background: linear-gradient(135deg, #1e293b, #334155);
+    border-radius: 6px;
+    position: relative;
+    border: 1px solid #475569;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    will-change: auto;
+    margin: 0;
+}
+
+.accel-group .accel-dot {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: #3b82f6;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 6px rgba(59, 130, 246, 0.6);
+    pointer-events: none;
+    will-change: transform;
+}
+
+.accel-group .accel-val {
+    font-size: 8px;
+    color: #94a3b8;
+    white-space: nowrap;
+    min-width: 50px;
+    text-align: center;
+    margin: 2px 0 0 0;
+    padding: 0;
+}
+
+/* Pad rotation (pitch/roll) */
+.rotation-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    flex-shrink: 0;
+    width: 50px;
+    margin: 0;
+    padding: 0;
+}
+
+.rotation-group label {
+    font-size: 12px;
+    margin: 0 0 2px 0;
+}
+
+.rotation-group .rotation-pad {
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+    min-height: 50px;
+    max-width: 50px;
+    max-height: 50px;
+    background: linear-gradient(135deg, #1e293b, #334155);
+    border-radius: 6px;
+    position: relative;
+    border: 1px solid #475569;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    will-change: auto;
+    margin: 0;
+}
+
+.rotation-group .rotation-dot {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: #f59e0b;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+    pointer-events: none;
+    will-change: transform;
+}
+
+.rotation-group .rotation-val {
+    font-size: 8px;
+    color: #94a3b8;
+    white-space: nowrap;
+    min-width: 50px;
+    text-align: center;
+    margin: 2px 0 0 0;
+    padding: 0;
+}
+
+/* Boutons action micro:bit */
+.mb-btn-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Bouton accéléromètre - même taille que le pad rotation */
+.mb-btn-group.accel-btn-group {
+    width: 50px;
+    gap: 2px;
+}
+
+.mb-btn-group.accel-btn-group .mb-btn {
+    width: 50px;
+    height: 50px;
+    min-width: 50px;
+    min-height: 50px;
+}
+
+.mb-btn-group .mb-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    border: 1px solid #475569;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: linear-gradient(135deg, #1e293b, #334155);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: all 0.15s ease;
+}
+
+.mb-btn-group .mb-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+    background: linear-gradient(135deg, #2d3748, #3d4d60);
+}
+
+.mb-btn-group .mb-btn:active {
+    transform: translateY(0);
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+}
+
+.mb-btn-group .mb-btn-label {
+    font-size: 8px;
+    color: #94a3b8;
+}
+
+/* ==================== CONTRÔLES DYNAMIQUES ==================== */
+/* Les contrôles sont cachés par défaut et apparaissent quand un bloc les utilise */
+
+.control-item {
+    transition: opacity 0.3s ease, transform 0.3s ease, max-width 0.3s ease, max-height 0.3s ease, margin 0.3s ease, padding 0.3s ease;
+    opacity: 1;
+    transform: scale(1);
+}
+
+.control-item.hidden {
+    opacity: 0;
+    transform: scale(0.8);
+    max-width: 0 !important;
+    max-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* Pour les sliders verticaux cachés */
+.v-slider-group.control-item.hidden {
+    width: 0;
+}
+
+/* Animation d'apparition */
+.control-item.appearing {
+    animation: controlAppear 0.3s ease forwards;
+}
+
+@keyframes controlAppear {
+    0% {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Cacher les lignes vides (quand tous les enfants sont cachés) */
+.controls-row:has(.control-item:not(.hidden)) {
+    display: flex;
+}
+
+.controls-row:not(:has(.control-item:not(.hidden))) {
+    display: none;
+}
+
+/* Cacher la colonne des boutons si vide */
+.controls-right-column:has(.control-item:not(.hidden)) {
+    display: flex;
+}
+
+.controls-right-column:not(:has(.control-item:not(.hidden))) {
+    display: none;
+}
+
+/* Cacher le panneau de contrôles entier si tout est caché */
+.microbit-controls-left:has(.control-item:not(.hidden)) {
+    display: flex;
+}
+
+.microbit-controls-left:not(:has(.control-item:not(.hidden))) {
+    display: none;
+}
+
+/* ==================== CONTENU SPECIFIQUE DOUBLE BARRIÈRE ==================== */
+.barrier-simulator-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px;
+    padding: 8px;
+    background: rgba(15, 23, 42, 0.3);
+    overflow: hidden;
+}
+
+.barrier-simulator-wrapper #barrierSimulatorContent {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.barrier-simulator-wrapper svg {
+    width: 85%;
+    height: 85%;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/* Animation de transition fluide pour les éléments SVG */
+.barrier-simulator-wrapper #gaucheBarriere,
+.barrier-simulator-wrapper #droiteBarriere,
+.barrier-simulator-wrapper #GaucheGear,
+.barrier-simulator-wrapper #droiteGear {
+    transition: transform 0.05s linear;
+}
+
+/* ==================== SIMULATEUR PORTILLON ==================== */
+.portillon-main-area {
+    display: flex;
+    flex: 1;
+    gap: 5px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Section Portillon */
+.portillon-section {
+    flex: 2;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.portillon-wrapper {
+    position: relative;
+    height: 100%;
+    max-width: 100%;
+    aspect-ratio: 752.47 / 542.12;
+    perspective: 600px;
+    perspective-origin: 61% 50%;
+}
+
+.portillon-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.portillon-door-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+}
+
+.portillon-door {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transform-origin: 61% 50%; /* Position exacte de l'axe de rotation */
+    transform: rotateY(0deg);
+    transition: transform 0.05s linear;
+}
+
+/* Section RFID */
+.rfid-section {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    min-width: 0;
+}
+
+.rfid-module-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 15px;
+    height: 100%;
+}
+
+.rfid-module {
+    position: relative;
+    height: 80%;
+    max-height: 180px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.rfid-module-img {
+    height: 100%;
+    width: auto;
+    display: block;
+}
+
+/* Zone de détection RFID - positionnée sur le cercle central du module */
+.rfid-detection-zone {
+    position: absolute;
+    top: 26%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 50%;
+    height: 20%;
+    border-radius: 50%;
+    /* border: 2px dashed rgba(124, 58, 237, 0.3); */ /* Debug: afficher la zone */
+    pointer-events: none;
+}
+
+/* Container du badge - positionné à droite du module en flex */
+.rfid-badge-container {
+    position: relative;
+    width: 55px;
+    flex-shrink: 0;
+    cursor: grab;
+    z-index: 10;
+}
+
+.rfid-badge {
+    width: 100%;
+    height: auto;
+    display: block;
+    pointer-events: auto;
+    cursor: grab;
+    transition: transform 0.1s ease;
+    position: relative;
+    z-index: 2;
+}
+
+.rfid-badge:hover {
+    transform: scale(1.05);
+}
+
+.rfid-badge:active {
+    cursor: grabbing;
+}
+
+/* Halo autour du badge quand détecté */
+.badge-halo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 115%;
+    height: 115%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(124, 58, 237, 0.5) 0%, rgba(124, 58, 237, 0.2) 50%, rgba(124, 58, 237, 0) 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: 1;
+    box-shadow: 0 0 12px rgba(124, 58, 237, 0.4), 0 0 25px rgba(124, 58, 237, 0.2);
+}
+
+.badge-halo.active {
+    opacity: 1;
+    animation: halo-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes halo-pulse {
+    0%, 100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+        box-shadow: 0 0 12px rgba(124, 58, 237, 0.4), 0 0 25px rgba(124, 58, 237, 0.2);
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.1);
+        opacity: 0.8;
+        box-shadow: 0 0 18px rgba(124, 58, 237, 0.5), 0 0 35px rgba(124, 58, 237, 0.3);
+    }
+}
+
+/* Zone de contrôle */
+.portillon-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 12px;
+    background: rgba(30, 41, 59, 0.6);
+    border-radius: 8px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.rfid-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-secondary, #94a3b8);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ef4444;
+    transition: background 0.3s ease;
+}
+
+.status-dot.active {
+    background: #22c55e;
+    box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+}
+
+.rfid-inputs {
+    display: flex;
+    gap: 12px;
+    flex: 1;
+    flex-wrap: wrap;
+}
+
+.rfid-input-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.rfid-input-group label {
+    font-size: 11px;
+    color: var(--text-secondary, #94a3b8);
+    white-space: nowrap;
+}
+
+.rfid-input-group input {
+    width: 100px;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-family: 'Fira Code', monospace;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(124, 58, 237, 0.3);
+    border-radius: 4px;
+    color: var(--text-primary, #f1f5f9);
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.rfid-input-group input:focus {
+    border-color: rgba(124, 58, 237, 0.6);
+}
+
+/* Wrapper pour le panneau portillon */
+.portillon-simulator-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Container intermédiaire - ESSENTIEL pour propager la hauteur */
+#portillonSimulatorContent {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+}
+
+.portillon-simulator-content {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    gap: 8px;
+    padding: 8px;
+    min-height: 0;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .portillon-main-area {
+        flex-direction: column;
+    }
+    
+    .portillon-section,
+    .rfid-section {
+        flex: none;
+        width: 100%;
+    }
+    
+    .portillon-controls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* ==================== SIMULATEUR RADIO MICRO:BIT ==================== */
+
+#radioMicrobitPanel {
+    border: 1px solid rgba(227, 0, 140, 0.3);
+    background: rgba(227, 0, 140, 0.05);
+}
+
+#radioMicrobitPanel .sim-panel-header {
+    background: linear-gradient(135deg, rgba(227, 0, 140, 0.2) 0%, rgba(168, 85, 247, 0.2) 100%);
+    border-bottom-color: rgba(227, 0, 140, 0.3);
+}
+
+/* Contrôles dans le header */
+.radio-panel-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.radio-ctrl-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 1px solid rgba(227, 0, 140, 0.3);
+    border-radius: 4px;
+    background: rgba(227, 0, 140, 0.1);
+    color: #e2e8f0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.radio-ctrl-btn:hover {
+    background: rgba(227, 0, 140, 0.3);
+    border-color: rgba(227, 0, 140, 0.5);
+}
+
+.radio-ctrl-btn.active {
+    background: rgba(227, 0, 140, 0.4);
+    border-color: #e3008c;
+}
+
+/* Bouton d'édition du programme avec texte */
+.radio-edit-btn {
+    width: auto !important;
+    padding: 4px 10px !important;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.radio-edit-btn span {
+    white-space: nowrap;
+}
+
+.radio-run-btn:hover {
+    background: rgba(34, 197, 94, 0.3);
+    border-color: rgba(34, 197, 94, 0.5);
+}
+
+.radio-stop-btn:hover {
+    background: rgba(239, 68, 68, 0.3);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* Volet paramètres */
+.radio-settings-drawer {
+    background: rgba(15, 23, 42, 0.6);
+    border-bottom: 1px solid rgba(227, 0, 140, 0.2);
+    overflow: hidden;
+}
+
+.radio-settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    cursor: pointer;
+    color: #94a3b8;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.radio-settings-header:hover {
+    background: rgba(227, 0, 140, 0.1);
+    color: #e2e8f0;
+}
+
+.radio-settings-arrow {
+    transition: transform 0.2s ease;
+}
+
+.radio-settings-drawer.open .radio-settings-arrow {
+    transform: rotate(180deg);
+}
+
+.radio-settings-content {
+    display: none;
+    padding: 8px 12px 12px;
+    border-top: 1px solid rgba(227, 0, 140, 0.1);
+}
+
+.radio-settings-drawer.open .radio-settings-content {
+    display: block;
+}
+
+.radio-setting-row {
+    margin-bottom: 10px;
+}
+
+.radio-setting-row:last-child {
+    margin-bottom: 0;
+}
+
+.radio-checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+    color: #94a3b8;
+    cursor: pointer;
+}
+
+.radio-checkbox-label input[type="checkbox"] {
+    margin-top: 2px;
+    accent-color: #e3008c;
+}
+
+.radio-checkbox-label span {
+    line-height: 1.4;
+}
+
+.radio-program-info {
+    font-size: 11px;
+    color: #64748b;
+    padding: 6px 8px;
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 4px;
+}
+
+.radio-program-info strong {
+    color: #e3008c;
+}
+
+/* Layout micro:bit radio */
+.radio-microbit-layout {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    min-height: 120px;
+}
+
+.second-microbit-container {
+    width: 100%;
+    max-width: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.second-microbit-container .microbit-board {
+    max-width: 100%;
+}
+
+.second-microbit-container svg {
+    width: 100%;
+    height: auto;
+    max-height: 160px;
+}
+
+/* Barre de statut radio */
+.radio-status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: rgba(15, 23, 42, 0.6);
+    border-top: 1px solid rgba(227, 0, 140, 0.2);
+    font-size: 11px;
+}
+
+.radio-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #64748b;
+}
+
+.radio-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #475569;
+    transition: all 0.3s ease;
+}
+
+.radio-dot.active {
+    background: #e3008c;
+    box-shadow: 0 0 8px rgba(227, 0, 140, 0.6);
+    animation: radio-blink 2s infinite;
+}
+
+@keyframes radio-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.radio-status-text {
+    color: #94a3b8;
+}
+
+.radio-group-info {
+    color: #94a3b8;
+    font-family: 'Fira Code', monospace;
+}
+
+/* ==================== POPUP ACCÉLÉROMÈTRE CARTE 2 ==================== */
+
+#radioAccelModal {
+    position: fixed;
+    top: 50%;
+    right: auto;
+    left: 350px;
+    transform: translateY(-50%);
+    z-index: 1001;
+}
+
+#radioAccelModal .accel-modal-content {
+    border-color: rgba(227, 0, 140, 0.4);
+    background: linear-gradient(135deg, rgba(30, 20, 40, 0.95) 0%, rgba(60, 30, 60, 0.95) 100%);
+}
+
+#radioAccelModal .accel-modal-header {
+    background: linear-gradient(135deg, rgba(227, 0, 140, 0.3) 0%, rgba(168, 85, 247, 0.3) 100%);
+    border-bottom-color: rgba(227, 0, 140, 0.3);
+}
+
+#radioAccelModal .accel-modal-header h3 {
+    color: #f9a8d4;
+}
+
+#radioAccelModal .accel-slider-row label {
+    color: #f9a8d4;
+}
+
+/* ==================== FENÊTRE FLOTTANTE ÉDITEUR RADIO ==================== */
+
+.radio-editor-floating {
+    position: fixed;
+    top: 100px;
+    left: 50px;
+    width: 600px;
+    height: 500px;
+    min-width: 400px;
+    min-height: 300px;
+    background: #0f172a;
+    border: 2px solid rgba(227, 0, 140, 0.5);
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(227, 0, 140, 0.2);
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+.radio-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, rgba(227, 0, 140, 0.3) 0%, rgba(168, 85, 247, 0.3) 100%);
+    border-bottom: 1px solid rgba(227, 0, 140, 0.3);
+    cursor: move;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.radio-editor-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #f1f5f9;
+}
+
+.radio-editor-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.radio-editor-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.radio-editor-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.radio-editor-btn.radio-editor-apply {
+    background: rgba(34, 197, 94, 0.3);
+    border-color: rgba(34, 197, 94, 0.5);
+}
+
+.radio-editor-btn.radio-editor-apply:hover {
+    background: rgba(34, 197, 94, 0.5);
+}
+
+.radio-editor-btn.radio-editor-close {
+    background: rgba(239, 68, 68, 0.3);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
+.radio-editor-btn.radio-editor-close:hover {
+    background: rgba(239, 68, 68, 0.5);
+}
+
+.radio-blockly-area {
+    flex: 1;
+    min-height: 0;
+    background: #1e293b;
+}
+
+.radio-blockly-area .blocklyToolboxDiv {
+    background: #0f172a !important;
+}
+
+.radio-blockly-area .blocklyFlyout {
+    background: #1e293b !important;
+}
+
+.radio-editor-resize {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
+    cursor: nwse-resize;
+    background: linear-gradient(135deg, transparent 50%, rgba(227, 0, 140, 0.4) 50%);
+    border-radius: 0 0 10px 0;
+}
+
+.radio-editor-resize:hover {
+    background: linear-gradient(135deg, transparent 50%, rgba(227, 0, 140, 0.7) 50%);
+}
+
+/* ==================== MODE CARTE 2 (WORKSPACE ROSE) ==================== */
+
+/* Bouton bascule Carte 2 */
+.btn-card2-switch {
+    background: linear-gradient(135deg, rgba(227, 0, 140, 0.2), rgba(168, 85, 247, 0.2)) !important;
+    border-color: rgba(227, 0, 140, 0.5) !important;
+    color: #f9a8d4 !important;
+}
+
+.btn-card2-switch:hover {
+    background: linear-gradient(135deg, rgba(227, 0, 140, 0.4), rgba(168, 85, 247, 0.4)) !important;
+    border-color: rgba(227, 0, 140, 0.8) !important;
+}
+
+/* Bouton retour Carte 1 */
+.btn-card1-switch {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(16, 185, 129, 0.2)) !important;
+    border-color: rgba(59, 130, 246, 0.5) !important;
+    color: #93c5fd !important;
+}
+
+.btn-card1-switch:hover {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.4), rgba(16, 185, 129, 0.4)) !important;
+    border-color: rgba(59, 130, 246, 0.8) !important;
+}
+
+/* Header du panel en mode Carte 2 */
+#editorPanelHeader.card2-mode {
+    background: linear-gradient(135deg, #be185d, #7c3aed) !important;
+    border-bottom: 3px solid #e3008c !important;
+}
+
+#editorPanelHeader.card2-mode h2 {
+    color: #ffffff !important;
+}
+
+#editorPanelHeader.card2-mode .btn {
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    color: #fce7f3 !important;
+}
+
+#editorPanelHeader.card2-mode .btn:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Workspace Blockly en mode Carte 2 */
+#blocklyDiv.card2-workspace {
+    background: #fbcfe8 !important;
+}
+
+#blocklyDiv.card2-workspace .blocklyMainBackground {
+    fill: #fbcfe8 !important;
+}
+
+/* Header de l'application en mode Carte 2 */
+header.header.card2-mode {
+    background: linear-gradient(135deg, #831843, #581c87) !important;
+    border-bottom: 2px solid #e3008c !important;
+}
+
+header.header.card2-mode .btn-group .btn:not(#btnSave):not(#btnLoad):not(#btnSettings) {
+    border-color: rgba(227, 0, 140, 0.5) !important;
+    color: #fce7f3 !important;
+}
+
+header.header.card2-mode .btn-group .btn:not(#btnSave):not(#btnLoad):not(#btnSettings):hover {
+    background: rgba(227, 0, 140, 0.3) !important;
+}
+
+header.header.card2-mode .btn-primary,
+header.header.card2-mode #btnDownloadHex {
+    background: linear-gradient(135deg, #e3008c, #a855f7) !important;
+    border-color: #e3008c !important;
+    color: #ffffff !important;
+}
+
+header.header.card2-mode .btn-primary:hover,
+header.header.card2-mode #btnDownloadHex:hover {
+    background: linear-gradient(135deg, #be185d, #7c3aed) !important;
+}
+
+/* Bouton MakeCode en mode Carte 2 (forcer) */
+#btnDownloadHex.card2-mode {
+    background: linear-gradient(135deg, #e3008c, #a855f7) !important;
+    border-color: #e3008c !important;
+    color: #ffffff !important;
+}
+
+#btnDownloadHex.card2-mode:hover {
+    background: linear-gradient(135deg, #be185d, #7c3aed) !important;
+}
+
+#btnDownloadHex.card2-mode span {
+    color: #ffffff !important;
+}
+
+header.header.card2-mode .btn-outline:not(#btnSave):not(#btnLoad):not(#btnSettings) {
+    background: rgba(227, 0, 140, 0.1) !important;
+}
+
+header.header.card2-mode .btn-outline:not(#btnSave):not(#btnLoad):not(#btnSettings):hover {
+    background: rgba(227, 0, 140, 0.3) !important;
+}
+
+/* Boutons Sauvegarder, Charger et Réglages gardent leur style gris en mode carte 2 */
+#btnSave.btn-outline,
+#btnLoad.btn-outline,
+#btnSettings.btn-outline {
+    background: #334155 !important;
+    color: #f1f5f9 !important;
+    border: 1px solid #475569 !important;
+}
+
+#btnSave.btn-outline:hover,
+#btnLoad.btn-outline:hover,
+#btnSettings.btn-outline:hover {
+    background: #475569 !important;
+    border-color: #3b82f6 !important;
+}
+
+header.header.card2-mode .toolbar-separator {
+    background: rgba(227, 0, 140, 0.3) !important;
+}
+
+header.header.card2-mode .logo h1 {
+    background: linear-gradient(135deg, #f472b6 0%, #e879f9 50%, #c084fc 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+}
+
+/* ==================== ANIMATION ÉMISSION RADIO (WIFI) ==================== */
+
+.radio-wifi-container {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.radio-wifi-icon {
+    position: relative;
+    width: 32px;
+    height: 32px;
+}
+
+.wifi-dot {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 6px;
+    height: 6px;
+    background: #e3008c;
+    border-radius: 50%;
+    opacity: 0;
+    animation: wifi-element-appear 0.8s ease-out forwards;
+}
+
+.wifi-arc {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    border: 3px solid transparent;
+    border-top-color: #e3008c;
+    border-right-color: #e3008c;
+    border-radius: 0 50% 0 0;
+    transform-origin: bottom left;
+    opacity: 0;
+}
+
+.wifi-arc-1 {
+    width: 13px;
+    height: 13px;
+    animation: wifi-element-appear 0.8s ease-out 0.1s forwards;
+}
+
+.wifi-arc-2 {
+    width: 21px;
+    height: 21px;
+    animation: wifi-element-appear 0.8s ease-out 0.2s forwards;
+}
+
+.wifi-arc-3 {
+    width: 29px;
+    height: 29px;
+    animation: wifi-element-appear 0.8s ease-out 0.3s forwards;
+}
+
+@keyframes wifi-element-appear {
+    0% {
+        opacity: 0;
+    }
+    30% {
+        opacity: 1;
+    }
+    70% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}

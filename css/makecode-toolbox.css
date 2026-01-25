@@ -1,0 +1,234 @@
+/**
+ * Style MakeCode pour la Toolbox
+ * Catégories repliables avec design moderne
+ */
+
+/* === Style global de la toolbox === */
+.blocklyToolboxDiv {
+    background-color: #f3f3f3 !important;
+    border-right: 1px solid #d3d3d3 !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* === Conteneur de catégories === */
+.blocklyTreeRoot {
+    padding: 8px 0;
+}
+
+/* === Style des catégories === */
+.blocklyTreeRow {
+    height: auto !important;
+    min-height: 40px;
+    padding: 0 !important;
+    margin: 4px 8px !important;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: visible;
+}
+
+.blocklyTreeRow:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+    transform: translateX(2px);
+}
+
+/* Catégorie sélectionnée */
+.blocklyTreeRow.blocklyTreeSelected {
+    background-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* === Label de catégorie === */
+.blocklyTreeLabel {
+    padding: 10px 12px !important;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* === Icône de catégorie === */
+.blocklyTreeIcon {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* === Séparateurs de sections === */
+.blocklyToolboxSeparator {
+    height: 20px;
+    background: transparent;
+    margin: 8px 0;
+    position: relative;
+}
+
+.blocklyToolboxSeparator::before {
+    content: '';
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #d3d3d3 20%, #d3d3d3 80%, transparent);
+}
+
+/* Séparateur avec titre */
+.blocklyToolboxSection {
+    margin: 16px 12px 8px;
+    padding: 0 4px 6px;
+    border-bottom: 2px solid #d3d3d3;
+}
+
+.blocklyToolboxSectionLabel {
+    font-size: 11px;
+    font-weight: 700;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 0 4px;
+}
+
+/* === Catégorie repliable === */
+.blocklyTreeRowCollapsible {
+    position: relative;
+}
+
+.blocklyTreeRowCollapsible::after {
+    content: '▼';
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    color: #666;
+    transition: transform 0.2s ease;
+}
+
+.blocklyTreeRowCollapsible.blocklyTreeRowCollapsed::after {
+    transform: translateY(-50%) rotate(-90deg);
+}
+
+/* Sous-catégories */
+.blocklyTreeRowChild {
+    margin-left: 20px !important;
+    margin-right: 8px !important;
+}
+
+.blocklyTreeRowChild .blocklyTreeLabel {
+    font-size: 13px;
+    font-weight: 500;
+    padding-left: 8px !important;
+}
+
+/* Animation d'ouverture/fermeture */
+.blocklyTreeRowChildrenCollapsed {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+
+.blocklyTreeRowChildrenExpanded {
+    max-height: 1000px;
+    overflow: visible;
+    transition: max-height 0.3s ease-in;
+}
+
+/* === Couleurs des catégories (style MakeCode) === */
+
+/* Micro:bit */
+.blocklyTreeRow[data-category="basic"] .blocklyTreeIcon { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+.blocklyTreeRow[data-category="input"] .blocklyTreeIcon { background: linear-gradient(135deg, #D400D4 0%, #A000A0 100%); }
+.blocklyTreeRow[data-category="music"] .blocklyTreeIcon { background: linear-gradient(135deg, #E63022 0%, #C02010 100%); }
+.blocklyTreeRow[data-category="led"] .blocklyTreeIcon { background: linear-gradient(135deg, #E63022 0%, #C02010 100%); }
+.blocklyTreeRow[data-category="radio"] .blocklyTreeIcon { background: linear-gradient(135deg, #E3008C 0%, #B00070 100%); }
+
+/* Programmation */
+.blocklyTreeRow[data-category="logic"] .blocklyTreeIcon { background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%); }
+.blocklyTreeRow[data-category="loops"] .blocklyTreeIcon { background: linear-gradient(135deg, #84cc16 0%, #65a30d 100%); }
+.blocklyTreeRow[data-category="math"] .blocklyTreeIcon { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); }
+.blocklyTreeRow[data-category="text"] .blocklyTreeIcon { background: linear-gradient(135deg, #5ba58c 0%, #3d7a6b 100%); }
+.blocklyTreeRow[data-category="variables"] .blocklyTreeIcon { background: linear-gradient(135deg, #ec4899 0%, #db2777 100%); }
+.blocklyTreeRow[data-category="functions"] .blocklyTreeIcon { background: linear-gradient(135deg, #78716c 0%, #57534e 100%); }
+
+/* Cutebot */
+.blocklyTreeRow[data-category="motors"] .blocklyTreeIcon { background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); }
+.blocklyTreeRow[data-category="leds"] .blocklyTreeIcon { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); }
+.blocklyTreeRow[data-category="sensors"] .blocklyTreeIcon { background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%); }
+.blocklyTreeRow[data-category="servo"] .blocklyTreeIcon { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+
+/* === Style du flyout === */
+.blocklyFlyout {
+    border-left: 1px solid #d3d3d3;
+}
+
+.blocklyFlyoutBackground {
+    fill: #ffffff !important;
+    fill-opacity: 0.95 !important;
+}
+
+/* === Animation de survol === */
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
+    50% { box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15); }
+}
+
+.blocklyTreeRow:hover .blocklyTreeIcon {
+    animation: pulse 1s ease-in-out infinite;
+}
+
+/* === Scrollbar personnalisée === */
+.blocklyToolboxDiv::-webkit-scrollbar {
+    width: 8px;
+}
+
+.blocklyToolboxDiv::-webkit-scrollbar-track {
+    background: #f3f3f3;
+}
+
+.blocklyToolboxDiv::-webkit-scrollbar-thumb {
+    background: #c4c4c4;
+    border-radius: 4px;
+}
+
+.blocklyToolboxDiv::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* === Responsive === */
+@media (max-width: 768px) {
+    .blocklyTreeLabel {
+        font-size: 13px;
+        padding: 8px 10px !important;
+    }
+    
+    .blocklyTreeIcon {
+        width: 20px;
+        height: 20px;
+    }
+}
+
+/* === Catégories "Avancé" style === */
+.blocklyToolboxCategoryAdvanced {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 2px solid #d3d3d3;
+}
+
+.blocklyToolboxCategoryAdvanced .blocklyTreeLabel {
+    color: #666;
+    font-size: 12px;
+}
+
+/* === Icônes emoji dans les catégories === */
+.blocklyTreeRow .category-emoji {
+    font-size: 18px;
+    line-height: 1;
+    margin-right: 4px;
+}

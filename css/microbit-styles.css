@@ -1,0 +1,350 @@
+/* =============================================================================
+   MICRO:BIT SIMULATOR STYLES
+   ============================================================================= */
+
+.microbit-simulator {
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.microbit-board {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    perspective: 1000px;
+    transition: opacity 0.3s ease;
+}
+
+.microbit-board.shaking {
+    animation: shake 0.5s ease-in-out;
+}
+
+.microbit-board.flipped {
+    opacity: 0.95;
+}
+
+.microbit-svg, #MicrobitSVG {
+    width: 100%;
+    max-width: 280px;
+    height: auto;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+    transition: transform 0.1s ease;
+    transform-style: preserve-3d;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    10% { transform: translateX(-5px) rotate(-2deg); }
+    20% { transform: translateX(5px) rotate(2deg); }
+    30% { transform: translateX(-5px) rotate(-1deg); }
+    40% { transform: translateX(5px) rotate(1deg); }
+    50% { transform: translateX(-3px) rotate(-1deg); }
+    60% { transform: translateX(3px) rotate(1deg); }
+    70% { transform: translateX(-2px) rotate(0deg); }
+    80% { transform: translateX(2px) rotate(0deg); }
+    90% { transform: translateX(-1px) rotate(0deg); }
+}
+
+/* Griser tous les éléments lors du flip (y compris l'arrière-plan) */
+#MicrobitSVG.flipped > g {
+    opacity: 0.3;
+    filter: grayscale(0.7);
+    transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+/* Board shape */
+.board-shape {
+    transition: fill 0.2s ease;
+}
+
+/* Buttons */
+.button-a, .button-b {
+    transition: transform 0.1s ease;
+}
+
+.button-a:hover, .button-b:hover {
+    transform: scale(1.05);
+}
+
+.button-a:active .button-inner,
+.button-b:active .button-inner {
+    fill: #444 !important;
+}
+
+/* Logo touch */
+.logo-touch {
+    transition: transform 0.1s ease;
+}
+
+.logo-touch:hover ellipse {
+    fill: #daa520;
+}
+
+.logo-touch:active ellipse {
+    fill: #b8860b;
+}
+
+/* LED Matrix */
+.led-cell {
+    transition: opacity 0.05s ease;
+}
+
+.led-glow {
+    transition: opacity 0.05s ease;
+}
+
+/* Edge connector pins - hover effect */
+.edge-connector rect[fill="#c9a227"]:hover {
+    fill: #daa520;
+    cursor: pointer;
+}
+
+/* Panneau de contrôle */
+.microbit-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}
+
+.control-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.control-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.8rem;
+}
+
+.control-row label {
+    color: #94a3b8;
+    min-width: 100px;
+    font-weight: 500;
+}
+
+.control-row input[type="range"] {
+    flex: 1;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #334155;
+    border-radius: 3px;
+    outline: none;
+}
+
+.control-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    background: #3b82f6;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.control-row input[type="range"]::-webkit-slider-thumb:hover {
+    background: #60a5fa;
+}
+
+.control-row input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: #3b82f6;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+.control-row span {
+    color: #e2e8f0;
+    min-width: 50px;
+    text-align: right;
+    font-family: 'Monaco', 'Consolas', monospace;
+    font-size: 0.75rem;
+}
+
+/* Accelerometer pad */
+.accel-control {
+    flex-wrap: wrap;
+}
+
+.accel-pad {
+    width: 80px;
+    height: 80px;
+    background: #1e293b;
+    border: 2px solid #334155;
+    border-radius: 8px;
+    position: relative;
+    cursor: crosshair;
+    margin: 8px 0;
+}
+
+.accel-pad::before,
+.accel-pad::after {
+    content: '';
+    position: absolute;
+    background: #334155;
+}
+
+.accel-pad::before {
+    width: 1px;
+    height: 100%;
+    left: 50%;
+    top: 0;
+}
+
+.accel-pad::after {
+    width: 100%;
+    height: 1px;
+    left: 0;
+    top: 50%;
+}
+
+.accel-dot {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: #ef4444;
+    border-radius: 50%;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+    transition: left 0.05s ease, top 0.05s ease;
+}
+
+/* Shake button */
+.shake-section {
+    display: flex;
+    justify-content: center;
+}
+
+.shake-btn {
+    padding: 10px 24px;
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.shake-btn:hover {
+    background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.shake-btn:active {
+    transform: translateY(0);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .microbit-simulator {
+        padding: 12px;
+    }
+    
+    .microbit-svg {
+        max-width: 240px;
+    }
+    
+    .control-row {
+        flex-wrap: wrap;
+    }
+    
+    .control-row label {
+        min-width: 80px;
+        font-size: 0.75rem;
+    }
+    
+    .accel-pad {
+        width: 60px;
+        height: 60px;
+    }
+}
+
+/* =============================================================================
+   COMBINED SIMULATOR LAYOUT (Cutebot + Micro:bit)
+   ============================================================================= */
+
+.simulator-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    height: 100%;
+    overflow-y: auto;
+}
+
+.simulator-section {
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.simulator-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.simulator-section-header h3 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.simulator-section-header .toggle-btn {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.simulator-section-header .toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+}
+
+.simulator-section-content {
+    padding: 16px;
+}
+
+.simulator-section-content.collapsed {
+    display: none;
+}
+
+/* Micro:bit section specific */
+.microbit-section .microbit-simulator {
+    background: transparent;
+    padding: 0;
+}
+
+/* Cutebot section - ajuster pour ne pas casser l'existant */
+.cutebot-section .simulator-container {
+    background: transparent;
+}
