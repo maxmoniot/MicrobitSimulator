@@ -115,6 +115,132 @@ function initMicrobitSimulator() {
     }
 }
 
+// ============== GESTION DES BLOCS CHAPEAUX DUPLIQUÉS ==============
+
+/**
+ * Configuration des blocs chapeaux (événements) et leurs champs distinctifs
+ * Les blocs avec les mêmes valeurs de champs sont considérés comme dupliqués
+ */
+const HAT_BLOCKS_CONFIG = {
+    // Blocs sans options (un seul autorisé)
+    'on_start': [],
+    'forever': [],
+    'cutebot_on_ir_receive': [],
+    'radio_on_received_number': [], // La variable ne différencie pas
+    'radio_on_received_string': [], // La variable ne différencie pas
+    
+    // Blocs avec options (différenciés par les champs)
+    'input_on_button_pressed': ['BUTTON'],
+    'input_on_gesture': ['GESTURE'],
+    'input_on_logo_event': ['EVENT'],
+    'cutebot_on_track_event': ['SENSOR', 'EVENT']
+};
+
+/**
+ * Vérifie et désactive les blocs chapeaux dupliqués
+ * Un bloc dupliqué est mis en transparence (désactivé)
+ * Il se réactive quand ses options le rendent unique
+ * @param {string|null} newBlockId - L'ID du bloc nouvellement créé (si applicable)
+ */
+const DUPLICATE_HAT_REASON = 'DUPLICATE_HAT_BLOCK';
+
+function checkDuplicateHatBlocks(newBlockId = null) {
+    if (!workspace) return;
+    
+    // Collecter tous les blocs chapeaux du workspace
+    const allBlocks = workspace.getAllBlocks(false);
+    const hatBlocks = {};
+    
+    // Grouper les blocs par type
+    allBlocks.forEach(block => {
+        const blockType = block.type;
+        if (HAT_BLOCKS_CONFIG.hasOwnProperty(blockType)) {
+            if (!hatBlocks[blockType]) {
+                hatBlocks[blockType] = [];
+            }
+            hatBlocks[blockType].push(block);
+        }
+    });
+    
+    // Pour chaque type de bloc chapeau
+    Object.keys(hatBlocks).forEach(blockType => {
+        const blocks = hatBlocks[blockType];
+        const fields = HAT_BLOCKS_CONFIG[blockType];
+        
+        // Grouper par signature (valeurs des champs)
+        const signatures = {};
+        
+        blocks.forEach(block => {
+            // Construire la signature basée sur les valeurs des champs
+            let signature = blockType;
+            fields.forEach(fieldName => {
+                const value = block.getFieldValue(fieldName);
+                signature += '|' + (value || '');
+            });
+            
+            if (!signatures[signature]) {
+                signatures[signature] = [];
+            }
+            signatures[signature].push(block);
+        });
+        
+        // Pour chaque groupe de blocs avec la même signature
+        Object.values(signatures).forEach(blockGroup => {
+            if (blockGroup.length <= 1) {
+                // Un seul bloc avec cette signature
+                // S'il était marqué comme doublon, le réactiver
+                if (blockGroup.length === 1 && blockGroup[0].isDuplicateHat) {
+                    blockGroup[0].setDisabledReason(false, DUPLICATE_HAT_REASON);
+                    blockGroup[0].isDuplicateHat = false;
+                }
+                return;
+            }
+            
+            // Plusieurs blocs avec la même signature
+            // Le bloc nouvellement créé (s'il est dans ce groupe) doit être désactivé
+            // Les blocs déjà là restent dans leur état actuel
+            
+            // D'abord, trouver s'il y a un bloc actif (non désactivé comme doublon)
+            let hasActiveBlock = blockGroup.some(b => !b.isDuplicateHat);
+            
+            blockGroup.forEach(block => {
+                const isNewBlock = (block.id === newBlockId);
+                
+                if (isNewBlock && hasActiveBlock) {
+                    // C'est le nouveau bloc et il y a déjà un bloc actif → désactiver
+                    if (!block.isDuplicateHat) {
+                        block.setDisabledReason(true, DUPLICATE_HAT_REASON);
+                        block.isDuplicateHat = true;
+                    }
+                } else if (!hasActiveBlock && !block.isDuplicateHat) {
+                    // Pas de bloc actif, ce bloc devient l'actif
+                    hasActiveBlock = true;
+                } else if (!hasActiveBlock && block.isDuplicateHat) {
+                    // Pas de bloc actif, réactiver ce doublon
+                    block.setDisabledReason(false, DUPLICATE_HAT_REASON);
+                    block.isDuplicateHat = false;
+                    hasActiveBlock = true;
+                }
+            });
+            
+            // S'il y a plus d'un bloc actif (cas d'un BLOCK_CHANGE qui crée un conflit),
+            // désactiver les blocs excédentaires sauf le premier trouvé
+            let foundActive = false;
+            blockGroup.forEach(block => {
+                if (!block.isDuplicateHat) {
+                    if (foundActive) {
+                        // Un actif a déjà été trouvé, désactiver celui-ci
+                        block.setDisabledReason(true, DUPLICATE_HAT_REASON);
+                        block.isDuplicateHat = true;
+                    } else {
+                        foundActive = true;
+                    }
+                }
+            });
+        });
+    });
+}
+
 // ============== BLOCKLY ==============
 function initBlockly() {
     // Traductions françaises
@@ -283,6 +409,16 @@ function initBlockly() {
     
     workspace.addChangeListener(e => { 
         if (e.type !== Blockly.Events.UI) {
+            // Vérifier les blocs chapeaux dupliqués
+            if (e.type === Blockly.Events.BLOCK_CREATE || 
+                e.type === Blockly.Events.BLOCK_DELETE || 
+                e.type === Blockly.Events.BLOCK_MOVE ||
+                e.type === Blockly.Events.BLOCK_CHANGE) {
+                // Passer l'ID du bloc nouvellement créé pour le traiter comme doublon potentiel
+                const newBlockId = (e.type === Blockly.Events.BLOCK_CREATE) ? e.blockId : null;
+                checkDuplicateHatBlocks(newBlockId);
+            }
+            
             // Sauvegarder l'ancien code avant de générer le nouveau
             const oldCode = currentCode;
             updateGeneratedCode();
@@ -1077,15 +1213,16 @@ function updateGeneratedCode() {
         let code = '';
         
         // Générer le code uniquement pour les blocs événements et définitions de fonctions
+        // qui sont activés (pas les doublons désactivés)
         topBlocks.forEach(block => {
-            if (eventBlockTypes.includes(block.type)) {
+            if (eventBlockTypes.includes(block.type) && block.isEnabled()) {
                 // Générer le code pour ce bloc
                 // Note: les blocs procedures_def* retournent null mais stockent la définition dans definitions_
                 const blockCode = Blockly.JavaScript.blockToCode(block);
                 if (blockCode) {
                     code += blockCode;
                 }
-            } else {
+            } else if (!eventBlockTypes.includes(block.type)) {
                 // Les autres blocs de niveau supérieur sont orphelins
                 // Ajouter la classe CSS pour les griser visuellement
                 const svgRoot = block.getSvgRoot();
@@ -2168,6 +2305,8 @@ function loadDefaultExample() {
     try {
         const xml = Blockly.utils.xml.textToDom(defaultXml);
         Blockly.Xml.domToWorkspace(xml, workspace);
+        // Vérifier les doublons après chargement
+        checkDuplicateHatBlocks();
     } catch (e) {
         // Silently ignore if default example fails to load
     }
