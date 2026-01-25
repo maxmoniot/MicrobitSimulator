@@ -1,190 +1,196 @@
-# Micro:bit & Cutebot Simulator V2
+# 🎓 Micro:bit Simulator
 
-## 🎯 Nouvelles fonctionnalités
+Application web de programmation par blocs pour **micro:bit** avec simulateurs visuels intégrés. Conçue pour l'enseignement de la technologie au collège.
 
-Cette version ajoute un **simulateur micro:bit V2 complet** à l'application existante, avec tous les blocs MakeCode de base.
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Platform](https://img.shields.io/badge/platform-Web-brightgreen.svg)
 
-### ✅ Blocs micro:bit implémentés
+## ✨ Fonctionnalités
 
-#### 📺 Basic (Affichage)
-- `afficher nombre` - Affiche un nombre sur la matrice LED
-- `afficher icône` - Affiche une icône prédéfinie (cœur, smiley, etc.)
-- `afficher LEDs` - Dessine un motif personnalisé (grille 5x5)
-- `afficher texte` - Fait défiler du texte
-- `afficher flèche` - Affiche une flèche directionnelle
-- `effacer écran` - Éteint toutes les LEDs
-- `au démarrage` - Code exécuté une fois
-- `toujours répéter` - Boucle infinie
-- `pause` - Attend un nombre de millisecondes
+### 🧱 Programmation par blocs
+- Interface visuelle style MakeCode/Scratch
+- Blocs en français
+- Catégories : Base, Entrées, Musique, LED, Radio, Boucles, Logique, Variables, Mathématiques
 
-#### 🎮 Entrées (Input)
-- `quand bouton A/B/A+B pressé` - Événement bouton
-- `bouton A/B/A+B pressé ?` - Test si bouton enfoncé
-- `quand secouer/pencher/...` - Événements gestes
-- `quand logo touché` - Logo tactile (V2)
-- `logo touché ?` - Test logo (V2)
-- `température` - Capteur de température (°C)
-- `niveau de lumière` - Capteur de lumière (0-255)
-- `direction boussole` - Boussole (0-359°)
-- `accélération x/y/z/force` - Accéléromètre
-- `rotation pitch/roll` - Inclinaison
-- `temps écoulé` - Millisecondes depuis démarrage
-- `niveau sonore` - Microphone (V2)
+### 📟 Simulateur micro:bit
+- Matrice LED 5x5 interactive
+- Boutons A, B et A+B
+- Capteurs simulés (température, luminosité, accéléromètre, boussole)
+- Gestes (secouer, incliner, chute libre...)
 
-#### 🎵 Musique
-- `jouer note` - Joue une note musicale
-- `jouer fréquence` - Joue une fréquence personnalisée
-- `jouer en continu` - Note continue
-- `silence` - Pause silencieuse
-- `arrêter tous les sons` - Stop audio
-- `tempo / définir tempo / modifier tempo` - Gestion du tempo
-- `durée d'un temps` - Calcul durée selon tempo
-- `haut-parleur activé/désactivé` - Contrôle speaker (V2)
-- `jouer son` - Effets sonores prédéfinis (V2)
-
-#### 💡 LED (Contrôle avancé)
-- `allumer LED x y` - Allume un pixel
-- `éteindre LED x y` - Éteint un pixel
-- `inverser LED x y` - Toggle un pixel
-- `LED allumée ? x y` - Test état pixel
-- `luminosité / définir luminosité` - Gestion luminosité
-- `arrêter animation` - Stop animation en cours
-- `graphique valeur max` - Affiche un bar graph
-- `activer écran oui/non` - Active/désactive écran
-
-#### 📻 Radio
-- `définir groupe radio` - Configure le groupe (0-255)
-- `envoyer nombre/texte/valeur` - Émission radio
-- `quand nombre/texte reçu` - Réception radio
-- `puissance émission` - Régler puissance (0-7)
-- `paquet reçu` - Propriétés du paquet
-
----
-
-## 🖥️ Simulateur Micro:bit V2
-
-Le simulateur inclut :
-
-### Matrice LED 5x5
-- Affichage rouge avec effet de lueur
-- Animation fluide
-- Support luminosité variable
-
-### Boutons A et B
-- Cliquables à la souris
-- Raccourcis clavier (A et B)
-- Support A+B simultané
-
-### Logo tactile (V2)
-- Zone dorée cliquable
-- Événements toucher/relâcher
-
-### Capteurs simulés
-- **Température** : Slider -5°C à 50°C
-- **Lumière** : Slider 0-255
-- **Boussole** : Slider 0-359°
-- **Accéléromètre** : Pad 2D draggable
-- **Bouton Secouer** : Déclenche le geste shake
-
-### Audio (V2)
-- Haut-parleur avec Web Audio API
-- Notes musicales réelles
-- Effets sonores basiques
-
----
-
-## 🤖 Simulateur Cutebot (existant)
-
-Toutes les fonctionnalités existantes sont conservées :
-- Moteurs avec vitesse variable
+### 🤖 Simulateur Cutebot
+- Robot virtuel avec déplacement en temps réel
+- Capteurs de suivi de ligne
+- Capteur ultrason
 - LEDs RGB
-- Capteurs de ligne
-- Capteur ultrasonique
 - Servomoteurs
 - Télécommande IR
+- Pince (gripper)
+- Piste de dessin personnalisable
 
----
+### 🚧 Simulateur Barrière
+- Servomoteur pour barrière automatique
+- Scénarios de parking/péage
 
-## 📁 Structure des fichiers
+### 🚪 Simulateur Portillon RFID
+- Module RFID MFRC522
+- Badges virtuels à scanner
+- Gestion d'accès
+
+### 📡 Communication Radio
+- Simulation de communication entre 2 cartes micro:bit
+- Envoi/réception de nombres et textes
+- Groupes radio configurables
+
+### 🔌 Téléversement WebUSB
+- **Chrome/Edge** : Téléversement direct sur micro:bit branché (sans copier de fichier !)
+- **Firefox** : Téléchargement du fichier HEX à copier manuellement
+- Détection automatique du micro:bit appairé
+
+## 🚀 Installation
+
+### Option 1 : Hébergement local (XAMPP/WAMP)
+
+1. Téléchargez ou clonez ce dépôt
+2. Copiez le dossier dans `htdocs/` (XAMPP) ou `www/` (WAMP)
+3. Démarrez Apache
+4. Ouvrez `http://localhost/microbit-simulator/`
+
+### Option 2 : Serveur web
+
+Uploadez simplement tous les fichiers sur votre serveur web. L'application fonctionne entièrement côté client (HTML/CSS/JS).
+
+### Option 3 : Ouverture directe
+
+Ouvrez `index.html` directement dans votre navigateur. 
+> ⚠️ Certaines fonctionnalités (chargement des firmwares) peuvent ne pas fonctionner en mode fichier local.
+
+## 📁 Structure du projet
 
 ```
-microbit-complete/
-├── index.html              # Page principale
+microbit-simulator/
+├── index.html                 # Page principale
+├── README.md                  # Ce fichier
 ├── css/
-│   └── styles.css          # Styles combinés
+│   ├── styles.css            # Styles principaux
+│   ├── simulator-panels.css  # Styles des panneaux
+│   └── ...
 ├── js/
-│   ├── blockly.min.js      # Blockly v12.3.1
-│   ├── app.js              # Application principale
-│   ├── cutebot-blocks.js   # Blocs Cutebot
-│   ├── cutebot-simulator.js # Simulateur Cutebot
-│   ├── microbit-blocks-basic.js    # Blocs Basic/Input/LED
-│   ├── microbit-blocks-music-radio.js # Blocs Music/Radio
+│   ├── app.js                # Application principale
+│   ├── blockly.min.js        # Bibliothèque Blockly
+│   ├── microbit-blocks-*.js  # Définitions des blocs
+│   ├── cutebot-blocks.js     # Blocs Cutebot
+│   ├── rfid-blocks.js        # Blocs RFID
+│   ├── servo-blocks.js       # Blocs Servo
 │   ├── microbit-simulator.js # Simulateur micro:bit
-│   ├── microbit-runtime.js # Runtime micro:bit
-│   └── hex-generator.js    # Export MakeCode
+│   ├── cutebot-simulator.js  # Simulateur Cutebot
+│   ├── barrier-simulator.js  # Simulateur Barrière
+│   ├── portillon-simulator.js# Simulateur Portillon
+│   ├── radio-simulator.js    # Communication radio
+│   ├── hex-generator.js      # Génération fichiers HEX
+│   ├── webusb-flasher.js     # Téléversement WebUSB
+│   └── microbit-fs-bundle.js # Gestion système fichiers micro:bit
+├── firmware/
+│   ├── micropython-v1.hex    # Firmware MicroPython V1
+│   ├── micropython-v2.hex    # Firmware MicroPython V2
+│   ├── Cutebot.py            # Bibliothèque Cutebot
+│   └── MFRC522.py            # Bibliothèque RFID
+├── images/
+│   ├── Microbit.svg          # Image micro:bit
+│   ├── Badge.svg             # Image badge RFID
+│   └── ...
 └── Documentation/
-    └── README.md           # Ce fichier
+    └── ...
 ```
 
+## 🎮 Guide d'utilisation
+
+### Programmer
+
+1. **Glissez-déposez** les blocs depuis la boîte à outils (gauche)
+2. **Assemblez** les blocs dans l'espace de travail
+3. Cliquez sur **▶ Exécuter** pour tester dans le simulateur
+
+### Simulateur micro:bit
+
+| Action | Comment faire |
+|--------|---------------|
+| Appuyer sur A | Cliquez sur le bouton A |
+| Appuyer sur B | Cliquez sur le bouton B |
+| Appuyer sur A+B | Cliquez sur les deux simultanément |
+| Secouer | Cliquez sur le bouton "Secouer" |
+
+### Simulateur Cutebot
+
+| Action | Comment faire |
+|--------|---------------|
+| Déplacer le robot | Cliquez et glissez |
+| Tourner le robot | Shift + clic et glissez |
+| Dessiner une ligne | Mode "✏️ Ligne" puis dessinez |
+| Effacer la piste | Bouton "🧹 Effacer" |
+
+### Téléverser sur micro:bit
+
+#### Avec Chrome/Edge (recommandé)
+1. Branchez votre micro:bit en USB
+2. Cliquez sur **"Télécharger mon programme"**
+3. Si c'est la première fois, appairez votre micro:bit
+4. Le programme est envoyé automatiquement ! ✨
+
+#### Avec Firefox
+1. Cliquez sur **"Télécharger mon programme"**
+2. Un fichier `.hex` est téléchargé
+3. Copiez-le sur le lecteur `MICROBIT`
+
+## 🔧 Configuration requise
+
+- **Navigateur moderne** : Chrome, Edge, Firefox, Safari
+- **WebUSB** (optionnel) : Chrome 61+ ou Edge 79+ pour le téléversement direct
+- **Résolution** : 1280x720 minimum recommandé
+
+## 📦 Dépendances
+
+- [Blockly](https://developers.google.com/blockly) - Éditeur de blocs visuel (Google)
+- [@microbit/microbit-fs](https://github.com/microbit-foundation/microbit-fs) - Gestion fichiers micro:bit
+- [@microbit/microbit-connection](https://github.com/microbit-foundation/microbit-connection) - WebUSB (chargé dynamiquement)
+
+## 🎯 Cas d'usage pédagogiques
+
+### Collège - Technologie
+- **5ème** : Découverte de la programmation, LED, boutons
+- **4ème** : Capteurs, boucles, conditions, robot Cutebot
+- **3ème** : Communication radio, projets complets (barrière, portillon)
+
+### Exemples de projets
+- 🚗 Robot suiveur de ligne
+- 🅿️ Barrière de parking automatique
+- 🚪 Contrôle d'accès par badge RFID
+- 🎮 Jeux sur matrice LED
+- 📡 Communication entre micro:bits
+
+## 🤝 Contribution
+
+Les contributions sont les bienvenues ! N'hésitez pas à :
+- 🐛 Signaler des bugs
+- 💡 Proposer des améliorations
+- 🔧 Soumettre des pull requests
+
+## ❤️ Soutenir le projet
+
+Si cette application vous est utile, vous pouvez soutenir son développement :
+
+👉 **[Tipeee - MaxTechno](https://fr.tipeee.com/maxtechno/)**
+
+## 📄 Licence
+
+Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
+
+## 👤 Auteur
+
+**Max** - Professeur de Technologie
+
 ---
 
-## 🚀 Export vers MakeCode
-
-Le code est automatiquement converti en TypeScript MakeCode :
-
-1. Cliquez sur **"Code"** pour voir le code généré
-2. Cliquez sur **"MakeCode"** pour ouvrir dans l'éditeur en ligne
-3. Dans MakeCode, téléchargez le fichier HEX
-4. Copiez le HEX sur votre micro:bit
-
-### Dépendances automatiques
-- Extension **cutebot** ajoutée si blocs cutebot utilisés
-- Extension **radio** ajoutée si blocs radio utilisés
-
----
-
-## ⚠️ Limitations
-
-### Simulation
-- **Radio** : Pas de communication réelle entre simulateurs (local seulement)
-- **Bluetooth** : Non supporté
-- **Pins GPIO** : Partiellement supporté
-- **Serial** : Non supporté
-
-### V2 spécifique
-- Sons basiques (pas les vrais effets MakeCode)
-- Microphone simulé (toujours 0)
-
----
-
-## 🔧 Personnalisation
-
-### Ajouter une icône
-Dans `microbit-simulator.js`, ajoutez au dictionnaire `icons` :
-```javascript
-'MonIcone': `
-    #.#.#
-    .#.#.
-    #.#.#
-    .#.#.
-    #.#.#
-`
-```
-
-### Ajouter un bloc
-1. Définir le bloc dans le fichier blocks approprié
-2. Ajouter le générateur JavaScript
-3. Ajouter la fonction runtime
-4. Ajouter au toolbox XML
-5. Mettre à jour hex-generator.js pour l'export
-
----
-
-## 📝 Changelog
-
-### Version 2.0
-- Ajout du simulateur micro:bit V2 complet
-- 50+ nouveaux blocs MakeCode
-- Interface avec 2 simulateurs côte à côte
-- Export MakeCode amélioré avec dépendances auto
-- Support audio avec Web Audio API
+<p align="center">
+  <i>Application créée avec ❤️ pour l'enseignement de la technologie</i>
+</p>
