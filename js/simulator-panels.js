@@ -198,62 +198,62 @@ class SimulatorPanelsManager {
         
         const deltaY = e.clientY - this.resizeStartY;
         const minExpandedHeight = 80;
+        const headerHeight = 36;
+        const gap = 2;
+        const padding = 8;
         
         // Nouvelle hauteur souhaitée
         let desiredHeight = this.resizeStartHeight + deltaY;
-        desiredHeight = Math.max(60, desiredHeight); // Minimum 60px
+        desiredHeight = Math.max(minExpandedHeight, desiredHeight);
         
-        // Calculer l'index du panneau en cours de resize
-        const resizingIndex = this.panels.indexOf(this.resizingPanel);
+        // Calculer l'espace total disponible
+        const containerHeight = this.container.clientHeight;
         
-        // Collecter les panneaux en dessous qui sont expanded et visibles
-        const panelsBelow = [];
-        for (let i = resizingIndex + 1; i < this.panels.length; i++) {
-            const p = this.panels[i];
-            if (p.style.display !== 'none' && !p.classList.contains('collapsed')) {
-                panelsBelow.push(p);
+        // Séparer les panneaux visibles en collapsed et expanded
+        const visiblePanels = this.panels.filter(p => p.style.display !== 'none');
+        const collapsedPanels = visiblePanels.filter(p => p.classList.contains('collapsed'));
+        const expandedPanels = visiblePanels.filter(p => !p.classList.contains('collapsed'));
+        
+        if (expandedPanels.length === 0) return;
+        
+        // Espace utilisé par les panneaux collapsed et les gaps
+        const collapsedSpace = collapsedPanels.length * headerHeight;
+        const totalGaps = (visiblePanels.length - 1) * gap;
+        
+        // Espace disponible pour les panneaux expanded
+        const availableForExpanded = containerHeight - collapsedSpace - padding - totalGaps;
+        
+        // Trouver le dernier panneau ouvert (celui qui absorbera l'espace restant)
+        const lastExpandedPanel = expandedPanels[expandedPanels.length - 1];
+        
+        // Note: on ne peut pas resize le dernier panneau ouvert car sa barre est cachée
+        // Donc on resize forcément un panneau qui n'est pas le dernier
+        
+        // Calculer la somme des hauteurs des autres panneaux expanded 
+        // (sauf celui qu'on resize et le dernier qui absorbe)
+        let otherExpandedHeight = 0;
+        expandedPanels.forEach(p => {
+            if (p !== this.resizingPanel && p !== lastExpandedPanel) {
+                const h = this.initialPanelHeights.get(p) || minExpandedHeight;
+                otherExpandedHeight += h;
             }
-        }
+        });
         
-        // Si on agrandit, il faut prendre de l'espace aux panneaux en dessous
-        if (desiredHeight > this.resizeStartHeight) {
-            const extraNeeded = desiredHeight - this.resizeStartHeight;
-            
-            // Calculer l'espace total récupérable des panneaux en dessous
-            let totalRecoverable = 0;
-            panelsBelow.forEach(p => {
-                const initialHeight = this.initialPanelHeights.get(p) || minExpandedHeight;
-                totalRecoverable += Math.max(0, initialHeight - minExpandedHeight);
-            });
-            
-            // Limiter l'agrandissement à l'espace récupérable
-            const actualExtra = Math.min(extraNeeded, totalRecoverable);
-            desiredHeight = this.resizeStartHeight + actualExtra;
-            
-            // Répartir la réduction sur les panneaux en dessous
-            let remainingToTake = actualExtra;
-            panelsBelow.forEach(p => {
-                const initialHeight = this.initialPanelHeights.get(p) || minExpandedHeight;
-                const canTake = Math.max(0, initialHeight - minExpandedHeight);
-                const take = Math.min(remainingToTake, canTake);
-                
-                const newHeight = initialHeight - take;
-                p.style.flex = `0 0 ${newHeight}px`;
-                remainingToTake -= take;
-                
-                // Callback pour le panneau redimensionné
-                this.onPanelResize(p);
-            });
+        // Le dernier panneau absorbe l'espace restant
+        const lastPanelHeight = availableForExpanded - desiredHeight - otherExpandedHeight;
+        
+        // Limiter pour respecter les minimums
+        if (lastPanelHeight < minExpandedHeight) {
+            // Le dernier panneau ne peut pas être plus petit que le minimum
+            desiredHeight = availableForExpanded - minExpandedHeight - otherExpandedHeight;
+            lastExpandedPanel.style.flex = `0 0 ${minExpandedHeight}px`;
         } else {
-            // Si on réduit, restaurer les panneaux en dessous à leur taille initiale
-            panelsBelow.forEach(p => {
-                const initialHeight = this.initialPanelHeights.get(p);
-                if (initialHeight) {
-                    p.style.flex = `0 0 ${initialHeight}px`;
-                    this.onPanelResize(p);
-                }
-            });
+            lastExpandedPanel.style.flex = `0 0 ${lastPanelHeight}px`;
         }
+        this.onPanelResize(lastExpandedPanel);
+        
+        // S'assurer que la hauteur désirée respecte le minimum
+        desiredHeight = Math.max(minExpandedHeight, desiredHeight);
         
         // Appliquer la nouvelle hauteur au panneau qu'on resize
         this.resizingPanel.style.flex = `0 0 ${desiredHeight}px`;
@@ -282,12 +282,12 @@ class SimulatorPanelsManager {
             // Expand
             panel.classList.remove('collapsed');
             if (collapseBtn) collapseBtn.classList.remove('collapsed');
-            if (resizeHandle) resizeHandle.style.display = '';
             
             // Temporairement mettre en flex auto pour calculer
             panel.style.flex = '1 1 auto';
             
             // Redistribuer l'espace équitablement entre tous les panneaux ouverts
+            // (cela met aussi à jour les barres de resize)
             this.redistributeSpaceEqually();
             
             // Callback après expansion
@@ -303,6 +303,7 @@ class SimulatorPanelsManager {
             panel.style.flex = '0 0 auto';
             
             // Redistribuer l'espace libéré
+            // (cela met aussi à jour les barres de resize)
             this.redistributeSpaceEqually();
         }
     }
@@ -341,15 +342,49 @@ class SimulatorPanelsManager {
             panel.style.flex = `0 0 ${finalHeight}px`;
         });
         
+        // Mettre à jour la visibilité des barres de resize
+        this.updateResizeHandles();
+        
         // Callback pour chaque panneau redimensionné
         expandedPanels.forEach(panel => {
             this.onPanelResize(panel);
         });
     }
     
+    /**
+     * Met à jour la visibilité des barres de redimensionnement
+     * La barre du dernier panneau ouvert est cachée car il remplit l'espace jusqu'en bas
+     */
+    updateResizeHandles() {
+        // Trouver tous les panneaux ouverts (non collapsed)
+        const expandedPanels = this.panels.filter(p => 
+            p.style.display !== 'none' && !p.classList.contains('collapsed')
+        );
+        
+        if (expandedPanels.length === 0) return;
+        
+        // Le dernier panneau ouvert
+        const lastExpandedPanel = expandedPanels[expandedPanels.length - 1];
+        
+        // Mettre à jour chaque panneau ouvert
+        expandedPanels.forEach(panel => {
+            const resizeHandle = panel.querySelector('.sim-panel-resize');
+            if (resizeHandle) {
+                if (panel === lastExpandedPanel) {
+                    // Cacher la barre du dernier panneau ouvert
+                    resizeHandle.style.display = 'none';
+                } else {
+                    // Afficher la barre des autres panneaux ouverts
+                    resizeHandle.style.display = '';
+                }
+            }
+        });
+    }
+    
     distributeSpace() {
         // Utiliser la redistribution équitable
         this.redistributeSpaceEqually();
+        // La mise à jour des barres de resize est faite dans redistributeSpaceEqually
     }
     
     clearDropIndicators() {
@@ -361,6 +396,9 @@ class SimulatorPanelsManager {
     updatePanelsOrder() {
         // Mettre à jour la liste des panneaux selon l'ordre DOM actuel
         this.panels = Array.from(this.container.querySelectorAll('.sim-panel'));
+        
+        // Mettre à jour les barres de resize (le dernier panneau ouvert peut avoir changé)
+        this.updateResizeHandles();
     }
     
     onPanelResize(panel) {

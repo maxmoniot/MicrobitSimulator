@@ -1,8 +1,8 @@
 /**
  * Double Barrière Simulator
  * Simulateur de deux barrières indépendantes avec engrenages animés
- * - Barrière gauche : contrôlée par servo P1 (180°=ouverte vers le haut, 90°=fermée horizontale)
- * - Barrière droite : contrôlée par servo P2 (0°=ouverte vers le haut, 90°=fermée horizontale)
+ * - Barrière droite : contrôlée par servo P1 (0°=ouverte vers le haut, 90°=fermée horizontale)
+ * - Barrière gauche : contrôlée par servo P2 (180°=ouverte vers le haut, 90°=fermée horizontale)
  */
 
 class BarrierSimulator {
@@ -14,8 +14,8 @@ class BarrierSimulator {
         }
         
         // État des barrières (angles servo)
-        this.leftAngle = 90;   // Servo P1 - barrière gauche
-        this.rightAngle = 90;  // Servo P2 - barrière droite
+        this.leftAngle = 90;   // Servo P2 - barrière gauche
+        this.rightAngle = 90;  // Servo P1 - barrière droite
         
         // Angles cibles pour l'animation
         this.leftTargetAngle = 90;
@@ -126,21 +126,21 @@ class BarrierSimulator {
     }
     
     /**
-     * Définit l'angle cible pour la barrière gauche (Servo P1)
+     * Définit l'angle cible pour la barrière gauche (Servo P2)
      * @param {number} angle - Angle du servo (180=ouverte vers le haut, 90=fermée horizontale)
      */
     setLeftAngle(angle) {
         this.leftTargetAngle = Math.max(0, Math.min(180, angle));
-        console.log(`🚧 Barrière gauche (P1): cible = ${this.leftTargetAngle}°`);
+        console.log(`🚧 Barrière gauche (P2): cible = ${this.leftTargetAngle}°`);
     }
     
     /**
-     * Définit l'angle cible pour la barrière droite (Servo P2)
+     * Définit l'angle cible pour la barrière droite (Servo P1)
      * @param {number} angle - Angle du servo (0=ouverte vers le haut, 90=fermée horizontale)
      */
     setRightAngle(angle) {
         this.rightTargetAngle = Math.max(0, Math.min(180, angle));
-        console.log(`🚧 Barrière droite (P2): cible = ${this.rightTargetAngle}°`);
+        console.log(`🚧 Barrière droite (P1): cible = ${this.rightTargetAngle}°`);
     }
     
     /**
@@ -198,12 +198,14 @@ class BarrierSimulator {
             return;
         }
         
-        // Calcul des rotations visuelles (0° = vers le bas, 180° = vers le haut)
-        // Barrière gauche (P1): 180° servo = vers le haut (ouverte), 90° servo = horizontale extérieur (fermée)
-        const leftBarrierRotation = -this.leftAngle;
+        // Calcul des rotations visuelles
+        // Barrière gauche (P2): 180° servo = vers le haut (ouverte), 90° servo = horizontale extérieur (fermée)
+        // Formule: leftAngle=180 → rotation=0° (haut), leftAngle=90 → rotation=-90° (horizontal gauche)
+        const leftBarrierRotation = this.leftAngle - 180;
         
-        // Barrière droite (P2): 0° servo = vers le haut (ouverte), 90° servo = horizontale extérieur (fermée)
-        const rightBarrierRotation = 180 - this.rightAngle;
+        // Barrière droite (P1): 0° servo = vers le haut (ouverte), 90° servo = horizontale extérieur (fermée)
+        // Formule: rightAngle=0 → rotation=0° (haut), rightAngle=90 → rotation=90° (horizontal droite)
+        const rightBarrierRotation = this.rightAngle;
         
         // Les engrenages tournent en sens inverse des barrières
         // Et on multiplie par un facteur pour un effet visuel plus prononcé

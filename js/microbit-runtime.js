@@ -281,11 +281,11 @@ function __servoSetAngle(pin, angle) {
     // Mettre à jour le simulateur de barrières si disponible
     if (typeof barrierSimulator !== 'undefined' && barrierSimulator) {
         if (pin === 'P1') {
-            // P1 contrôle la barrière gauche
-            barrierSimulator.setLeftAngle(state.angle);
-        } else if (pin === 'P2') {
-            // P2 contrôle la barrière droite
+            // P1 contrôle la barrière droite (0° = ouverte, 90° = fermée)
             barrierSimulator.setRightAngle(state.angle);
+        } else if (pin === 'P2') {
+            // P2 contrôle la barrière gauche (180° = ouverte, 90° = fermée)
+            barrierSimulator.setLeftAngle(state.angle);
         }
     }
     

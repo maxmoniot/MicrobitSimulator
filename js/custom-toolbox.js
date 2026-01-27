@@ -717,9 +717,14 @@ class CustomToolbox {
     loadCollapsedState() {
         try {
             const saved = localStorage.getItem('custom_toolbox_collapsed');
-            return saved ? JSON.parse(saved) : [];
+            if (saved) {
+                return JSON.parse(saved);
+            } else {
+                // Par défaut, fermer les sections Cutebot, Barrières et Portillon
+                return ['CUTEBOT', 'BARRIÈRES', 'PORTILLON'];
+            }
         } catch (e) {
-            return [];
+            return ['CUTEBOT', 'BARRIÈRES', 'PORTILLON'];
         }
     }
 }

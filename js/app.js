@@ -1597,6 +1597,7 @@ function loadProject() {
 
 /**
  * Ouvre les panneaux de simulateurs nécessaires selon les blocs présents
+ * et ferme les autres (sauf micro:bit qui reste toujours ouvert)
  * puis lance la simulation
  */
 function openRequiredPanelsAndRun() {
@@ -1616,34 +1617,50 @@ function openRequiredPanelsAndRun() {
             needsCutebot = true;
         }
         
-        // Barrière : tous les blocs commencent par 'barrier_'
-        if (type.startsWith('barrier_')) {
+        // Barrière : blocs 'barrier_' OU blocs 'servo_' (section double barrière)
+        // Les blocs servo_ de la section barrière ne commencent PAS par 'portillon_'
+        if (type.startsWith('barrier_') || (type.startsWith('servo_') && !type.startsWith('portillon_'))) {
             needsBarrier = true;
         }
         
-        // Portillon/RFID : blocs commençant par 'portillon_' ou 'rfid_'
+        // Portillon/RFID : blocs 'portillon_' (inclut portillon_servo_*) ou 'rfid_'
         if (type.startsWith('portillon_') || type.startsWith('rfid_')) {
             needsPortillon = true;
         }
     }
     
-    // Ouvrir les panneaux nécessaires
+    // Ouvrir/fermer les panneaux selon les besoins
+    // Le panneau micro:bit reste toujours ouvert
     if (simulatorPanels) {
-        if (needsCutebot) {
-            const cutebotPanel = simulatorPanels.getPanel('cutebot');
-            if (cutebotPanel && cutebotPanel.classList.contains('collapsed')) {
+        // Cutebot
+        const cutebotPanel = simulatorPanels.getPanel('cutebot');
+        if (cutebotPanel) {
+            const isCollapsed = cutebotPanel.classList.contains('collapsed');
+            if (needsCutebot && isCollapsed) {
+                simulatorPanels.togglePanel(cutebotPanel);
+            } else if (!needsCutebot && !isCollapsed) {
                 simulatorPanels.togglePanel(cutebotPanel);
             }
         }
-        if (needsBarrier) {
-            const barrierPanel = simulatorPanels.getPanel('barrier');
-            if (barrierPanel && barrierPanel.classList.contains('collapsed')) {
+        
+        // Barrière
+        const barrierPanel = simulatorPanels.getPanel('barrier');
+        if (barrierPanel) {
+            const isCollapsed = barrierPanel.classList.contains('collapsed');
+            if (needsBarrier && isCollapsed) {
+                simulatorPanels.togglePanel(barrierPanel);
+            } else if (!needsBarrier && !isCollapsed) {
                 simulatorPanels.togglePanel(barrierPanel);
             }
         }
-        if (needsPortillon) {
-            const portillonPanel = simulatorPanels.getPanel('portillon');
-            if (portillonPanel && portillonPanel.classList.contains('collapsed')) {
+        
+        // Portillon
+        const portillonPanel = simulatorPanels.getPanel('portillon');
+        if (portillonPanel) {
+            const isCollapsed = portillonPanel.classList.contains('collapsed');
+            if (needsPortillon && isCollapsed) {
+                simulatorPanels.togglePanel(portillonPanel);
+            } else if (!needsPortillon && !isCollapsed) {
                 simulatorPanels.togglePanel(portillonPanel);
             }
         }
