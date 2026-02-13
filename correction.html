@@ -1,0 +1,2088 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Micro:bit Simulator — Correction</title>
+    <link rel="icon" type="image/svg+xml" href="images/logo.svg">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0c0a1d;
+            --bg-secondary: #151230;
+            --bg-card: #1c1845;
+            --bg-card-hover: #231e55;
+            --accent: #8b5cf6;
+            --accent-light: #a78bfa;
+            --accent-dim: rgba(139, 92, 246, 0.15);
+            --success: #22c55e;
+            --success-dim: rgba(34, 197, 94, 0.15);
+            --warning: #f59e0b;
+            --warning-dim: rgba(245, 158, 11, 0.15);
+            --danger: #ef4444;
+            --danger-dim: rgba(239, 68, 68, 0.15);
+            --info: #3b82f6;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --text-muted: #64748b;
+            --border: rgba(139, 92, 246, 0.2);
+            --radius: 12px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        /* ===== HEADER ===== */
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        header img { height: 32px; }
+        header h1 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-light), #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        header .subtitle {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            margin-left: auto;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        header a {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: color 0.2s;
+        }
+        header a:hover { color: var(--accent-light); }
+
+        /* ===== LAYOUT ===== */
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        .setup-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        /* ===== CARDS ===== */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+        }
+        .card h2 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--accent-light);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card h2 .num {
+            background: var(--accent);
+            color: white;
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.75rem; font-weight: 700;
+        }
+
+        /* ===== DROP ZONES ===== */
+        .drop-zone {
+            border: 2px dashed rgba(139, 92, 246, 0.3);
+            border-radius: 10px;
+            padding: 32px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background-color 0.2s;
+            position: relative;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+        .drop-zone .icon { font-size: 2rem; margin-bottom: 8px; }
+        .drop-zone .label {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+        .drop-zone .label strong { color: var(--accent-light); }
+        .drop-zone input { display: none; }
+
+        .file-loaded {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: var(--success-dim);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            border-radius: 8px;
+            margin-top: 12px;
+            font-size: 0.85rem;
+        }
+        .file-loaded .fname {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--success);
+        }
+        .file-loaded .meta {
+            color: var(--text-dim);
+            font-size: 0.75rem;
+            margin-left: auto;
+        }
+
+        .files-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 12px;
+        }
+        .files-list::-webkit-scrollbar { width: 4px; }
+        .files-list::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
+        .files-list .file-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .files-list .file-item:last-child { border-bottom: none; }
+        .files-count {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* ===== OPTIONS ===== */
+        .options-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .option-card {
+            flex: 1;
+            padding: 16px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: border-color 0.2s, background-color 0.2s;
+        }
+        .option-card:hover { border-color: rgba(139, 92, 246, 0.4); }
+        .option-card.selected {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+        .option-card h3 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .option-card p {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            line-height: 1.4;
+        }
+
+        /* ===== BUTTON ===== */
+        .btn-primary {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 14px 24px;
+            background: linear-gradient(135deg, #7c3aed, #6d28d9);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-primary:active { transform: scale(0.98); }
+        .btn-primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* ===== RESULTS ===== */
+        #resultsSection { display: none; }
+
+        .results-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .results-header h2 {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        .results-stats {
+            display: flex;
+            gap: 20px;
+            margin-left: auto;
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .results-stats .stat { color: var(--text-dim); }
+        .results-stats .stat strong { color: var(--text); }
+
+        .results-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .result-row {
+            display: grid;
+            grid-template-columns: 1fr auto 120px auto;
+            align-items: center;
+            gap: 16px;
+            padding: 14px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.15s, border-color 0.15s;
+        }
+        .result-row:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(139, 92, 246, 0.35);
+        }
+
+        .result-name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .result-bar-container {
+            width: 120px;
+            height: 8px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .result-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .result-score {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            font-weight: 700;
+            min-width: 55px;
+            text-align: right;
+        }
+
+        .score-high { color: var(--success); }
+        .score-mid { color: var(--warning); }
+        .score-low { color: var(--danger); }
+        .bar-high { background: var(--success); }
+        .bar-mid { background: var(--warning); }
+        .bar-low { background: var(--danger); }
+
+        .result-arrow { color: var(--text-muted); font-size: 1.1rem; }
+
+        /* ===== DETAIL PANEL ===== */
+        .detail-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .detail-overlay.show { display: flex; }
+
+        .detail-panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 700px;
+            max-height: 85vh;
+            overflow-y: auto;
+            padding: 28px;
+        }
+        .detail-panel::-webkit-scrollbar { width: 6px; }
+        .detail-panel::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+
+        .detail-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .detail-header h2 {
+            font-size: 1rem;
+            font-weight: 700;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .detail-header .score-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.3rem;
+            font-weight: 700;
+            padding: 6px 16px;
+            border-radius: 8px;
+        }
+        .score-badge.high { background: var(--success-dim); color: var(--success); }
+        .score-badge.mid { background: var(--warning-dim); color: var(--warning); }
+        .score-badge.low { background: var(--danger-dim); color: var(--danger); }
+
+        .detail-close {
+            background: none; border: none;
+            color: var(--text-muted); font-size: 1.4rem;
+            cursor: pointer; padding: 4px 8px;
+        }
+        .detail-close:hover { color: var(--text); }
+
+        .hat-section {
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .hat-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.03);
+            cursor: pointer;
+            user-select: none;
+        }
+        .hat-header:hover { background: rgba(255,255,255,0.06); }
+        .hat-header .hat-icon { font-size: 1.1rem; }
+        .hat-header .hat-name {
+            font-weight: 600;
+            font-size: 0.88rem;
+            flex: 1;
+        }
+        .hat-header .hat-score {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .hat-header .hat-toggle { color: var(--text-muted); transition: transform 0.2s; }
+        .hat-header.open .hat-toggle { transform: rotate(90deg); }
+
+        .hat-body { display: none; padding: 12px 16px; }
+        .hat-header.open + .hat-body { display: block; }
+
+        .action-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 0.82rem;
+        }
+        .action-row:last-child { border-bottom: none; }
+        .action-icon { font-size: 0.9rem; flex-shrink: 0; margin-top: 1px; }
+        .action-desc { flex: 1; color: var(--text-dim); }
+        .action-desc .expected {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            display: block;
+            margin-top: 2px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .action-pts {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .others-section { opacity: 0.6; }
+        .others-section .hat-header { font-style: italic; }
+
+        .mode-badge {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .mode-badge.identical { background: rgba(59,130,246,0.15); color: var(--info); }
+        .mode-badge.objective { background: rgba(139,92,246,0.15); color: var(--accent-light); }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .setup-grid { grid-template-columns: 1fr; }
+            .options-row { flex-direction: column; }
+            .result-row { grid-template-columns: 1fr auto auto; }
+            .result-bar-container { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <img src="images/logo.svg" alt="Micro:bit Simulator" onerror="this.style.display='none'">
+    <h1>Micro:bit Simulator — Correction</h1>
+    <a href="index.html">← Retour à l'éditeur</a>
+    <span class="subtitle" id="modeLabel"></span>
+</header>
+
+<main>
+    <!-- SETUP -->
+    <div class="setup-grid">
+        <!-- Reference file -->
+        <div class="card">
+            <h2><span class="num">1</span> Programme de référence</h2>
+            <div class="drop-zone" id="refDropZone">
+                <div class="icon">📄</div>
+                <div class="label">Glissez le fichier <strong>.hex</strong> de référence ici<br>ou cliquez pour parcourir</div>
+                <input type="file" id="refInput" accept=".hex,.xml,.json">
+            </div>
+            <div id="refFileInfo"></div>
+        </div>
+
+        <!-- Student files -->
+        <div class="card">
+            <h2><span class="num">2</span> Programmes des élèves</h2>
+            <div class="drop-zone" id="studentDropZone">
+                <div class="icon">📚</div>
+                <div class="label">Glissez <strong>tous les fichiers</strong> élèves ici<br>ou cliquez pour sélectionner</div>
+                <input type="file" id="studentInput" accept=".hex,.xml,.json" multiple>
+            </div>
+            <div class="files-list" id="studentFilesList"></div>
+            <div class="files-count" id="studentCount"></div>
+        </div>
+    </div>
+
+    <!-- Options + launch -->
+    <div class="card" style="margin-bottom:32px;">
+        <h2><span class="num">3</span> Mode de correction</h2>
+        <div class="options-row">
+            <div class="option-card selected" data-mode="objective" onclick="selectMode('objective')">
+                <h3>🎯 Correction par objectif</h3>
+                <p>Analyse ce que fait le programme. Si l'élève obtient le même résultat par une méthode différente, c'est validé.</p>
+            </div>
+            <div class="option-card" data-mode="identical" onclick="selectMode('identical')">
+                <h3>🔒 Correction à l'identique</h3>
+                <p>Comparaison stricte bloc par bloc. L'élève doit reproduire exactement le même programme.</p>
+            </div>
+        </div>
+        <button class="btn-primary" id="btnCorrect" disabled onclick="startCorrection()">
+            ▶ Lancer la correction
+        </button>
+    </div>
+
+    <!-- Results -->
+    <div id="resultsSection">
+        <div class="results-header">
+            <h2>📊 Résultats</h2>
+            <div class="results-stats">
+                <span class="stat">Moyenne : <strong id="avgScore">—</strong></span>
+                <span class="stat">Min : <strong id="minScore">—</strong></span>
+                <span class="stat">Max : <strong id="maxScore">—</strong></span>
+            </div>
+        </div>
+        <div class="results-list" id="resultsList"></div>
+    </div>
+</main>
+
+<!-- Detail overlay -->
+<div class="detail-overlay" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
+    <div class="detail-panel" id="detailPanel"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════════
+const TOTAL_POINTS = 20;
+let correctionMode = 'objective';
+let referenceData = null;    // { xml, hatBlocks }
+let studentFiles = [];       // [{ name, content }]
+let correctionResults = [];  // [{ name, score, details }]
+
+// ═══════════════════════════════════════════════════════════
+// ICON PATTERNS (for equivalence detection)
+// ═══════════════════════════════════════════════════════════
+const ICON_PATTERNS = {
+    Heart:       '0101011111111110111000100',
+    SmallHeart:  '0000001010011100010000000',
+    Happy:       '0000001010000001000101110',
+    Sad:         '0000001010000000111010001',
+    Confused:    '0000001010000000101010101',
+    Angry:       '1000101010000001111110101',
+    Asleep:      '0000011011000000111000000',
+    Surprised:   '0101000000001000101000100',
+    Silly:       '1000100000111110001100011',
+    Fabulous:    '1111111011000000101001110',
+    Meh:         '0101000000001000010001000',
+    Yes:         '0000000001000101010001000',
+    No:          '1000101010001000101010001',
+    Triangle:    '0010000100010100101011111',
+    Diamond:     '0010001010100010101000100',
+    DiamondSmall:'0000000100010100010000000',
+    Square:      '1111110001100011000111111',
+    SquareSmall: '0000001110010100111000000',
+    Target:      '0010001110110110111000100',
+    Chessboard:  '1010101010101010101010101',
+    Scissors:    '1100111010001001101011001',
+    TShirt:      '1101111111011100111001110',
+    Rollerskate: '0000100001111111111101010',
+    Duck:        '0110011100011110111000000',
+    House:       '0010001110111110111001010',
+    Tortoise:    '0000001110111110101000000',
+    Butterfly:   '1101111111001001111111011',
+    StickFigure: '0010011111001000101010001',
+    Ghost:       '0111010101111111111110101',
+    Sword:       '0010000100001000111000100',
+    Giraffe:     '1100001000010000111101010',
+    Skull:       '0111010101111110111001110',
+    Umbrella:    '0111011111001001010001100',
+    Snake:       '1100011011010100111000000',
+    Music:       '0010000110010101110011100',
+    Pitchfork:   '1010110101111110010000100',
+    Pacman:      '0111110000111101111101111',
+};
+
+// Patterns flèches (mêmes que dans le simulateur)
+const ARROW_PATTERNS = {
+    North:     '0010001110101010010000100',
+    NorthEast: '0111100111010110100100001',
+    East:      '0010000010111110001000100',
+    SouthEast: '1000001001001011001101111',  
+    South:     '0010000100101011011000100',
+    SouthWest: '0000110010101001100011100',
+    West:      '0010001000111110100000100',
+    NorthWest: '1110011000101001001000001',
+};
+
+// Mapping couleur nom → hex pour comparaison Cutebot LED
+const COLOR_HEX_MAP = {
+    'rouge': '#ff0000', 'red': '#ff0000', '#ff0000': '#ff0000',
+    'orange': '#ff8000', '#ff8000': '#ff8000',
+    'jaune': '#ffff00', 'yellow': '#ffff00', '#ffff00': '#ffff00',
+    'vert': '#00ff00', 'green': '#00ff00', '#00ff00': '#00ff00',
+    'bleu': '#0000ff', 'blue': '#0000ff', '#0000ff': '#0000ff',
+    'violet': '#8000ff', 'purple': '#8000ff', '#8000ff': '#8000ff',
+    'rose': '#ff00ff', 'pink': '#ff00ff', '#ff00ff': '#ff00ff',
+    'blanc': '#ffffff', 'white': '#ffffff', '#ffffff': '#ffffff',
+    'éteint': '#000000', 'off': '#000000', '#000000': '#000000',
+};
+
+function normalizeColor(color) {
+    if (!color) return null;
+    const c = String(color).toLowerCase().trim();
+    return COLOR_HEX_MAP[c] || c;
+}
+
+// ═══════════════════════════════════════════════════════════
+// HAT BLOCK NAMES (French)
+// ═══════════════════════════════════════════════════════════
+function getHatName(type, fields) {
+    switch(type) {
+        case 'on_start': return 'Au démarrage';
+        case 'forever': return 'Toujours';
+        case 'input_on_button_pressed':
+            const btn = fields.BUTTON || 'A';
+            return btn === 'AB' ? 'Boutons A+B pressés' : `Bouton ${btn} pressé`;
+        case 'input_on_gesture':
+            const gestures = {shake:'secouer','tilt left':'pencher gauche','tilt right':'pencher droite',
+                'logo up':'logo en haut','logo down':'logo en bas','screen up':'écran en haut',
+                'screen down':'écran en bas','free fall':'chute libre','3g':'3g','6g':'6g'};
+            return `Lorsque ${gestures[fields.GESTURE] || fields.GESTURE}`;
+        case 'input_on_logo_event':
+            const logoEvts = {pressed:'touché',released:'relâché','long pressed':'appui long'};
+            return `Logo ${logoEvts[fields.EVENT] || fields.EVENT || 'touché'}`;
+        case 'radio_on_received_number': return 'Quand nombre reçu par radio';
+        case 'radio_on_received_string': return 'Quand texte reçu par radio';
+        case 'cutebot_on_ir_receive': return 'Quand signal IR reçu';
+        case 'cutebot_on_track_event':
+            const sensor = fields.SENSOR === 'Right' ? 'droit' : 'gauche';
+            const evt = fields.EVENT === 'LoseLine' ? 'perd la ligne' : 'trouve la ligne';
+            return `Quand capteur ${sensor} ${evt}`;
+        default: return type;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+// ACTION BLOCK DESCRIPTIONS (French)
+// ═══════════════════════════════════════════════════════════
+function getActionDesc(action) {
+    const t = action.type;
+    const f = action.fields;
+    const v = action.values;
+    switch(t) {
+        // === AFFICHAGE ===
+        case 'basic_show_icon': return `Afficher l'icône ${f.ICON || '?'}`;
+        case 'basic_show_leds': return `Afficher les LEDs (motif personnalisé)`;
+        case 'basic_show_string': return `Afficher le texte "${v.TEXT || '?'}"`;
+        case 'basic_show_number': return `Afficher le nombre ${v.NUM || '?'}`;
+        case 'basic_show_arrow': return `Afficher la flèche ${f.DIRECTION || '?'}`;
+        case 'basic_clear_screen': return 'Effacer l\'écran';
+        case 'basic_pause': return `Pause ${v.MS || '?'} ms`;
+        case 'led_plot': return `Allumer LED (${v.X||0}, ${v.Y||0})`;
+        case 'led_unplot': return `Éteindre LED (${v.X||0}, ${v.Y||0})`;
+        case 'led_toggle': return `Basculer LED (${v.X||0}, ${v.Y||0})`;
+        case 'led_point': return `LED allumée ? (${v.X||0}, ${v.Y||0})`;
+        case 'led_set_brightness': return `Régler luminosité à ${v.BRIGHTNESS || '?'}`;
+        case 'led_brightness': return 'Luminosité actuelle';
+        case 'led_stop_animation': return 'Arrêter l\'animation';
+        case 'led_enable': return `${f.ENABLED === 'true' ? 'Activer' : 'Désactiver'} l'écran LED`;
+        case 'led_plot_bar_graph': return `Graphique à barres ${v.VALUE || '?'} sur ${v.MAX || '?'}`;
+
+        // === CAPTEURS / ENTRÉES ===
+        case 'input_temperature': return 'Température';
+        case 'input_light_level': return 'Niveau de luminosité';
+        case 'input_compass_heading': return 'Cap de la boussole';
+        case 'input_magnetic_force': return `Force magnétique (${f.AXIS || 'force'})`;
+        case 'input_acceleration': return `Accélération (${f.AXIS || 'x'})`;
+        case 'input_rotation': return `Rotation (${f.AXIS || 'pitch'})`;
+        case 'input_running_time': return 'Temps d\'exécution (ms)';
+        case 'input_sound_level': return 'Niveau sonore';
+        case 'input_button_is_pressed': return `Bouton ${f.BUTTON || '?'} pressé ?`;
+        case 'input_logo_is_pressed': return 'Logo touché ?';
+
+        // === MUSIQUE ===
+        case 'music_play_tone': return `Jouer note ${f.NOTE || '?'} pendant ${v.DURATION || '?'} ms`;
+        case 'music_play_tone_freq': return `Jouer fréquence ${v.FREQ || '?'} Hz pendant ${v.DURATION || '?'} ms`;
+        case 'music_ring_tone': return `Jouer note ${f.NOTE || '?'} en continu`;
+        case 'music_rest': return `Silence ${v.DURATION || '?'} ms`;
+        case 'music_set_tempo': return `Régler tempo à ${v.BPM || '?'} BPM`;
+        case 'music_change_tempo_by': return `Modifier tempo de ${v.DELTA || '?'} BPM`;
+        case 'music_tempo': return 'Tempo actuel';
+        case 'music_beat': return `Durée d'un temps (${f.FRACTION || '?'})`;
+        case 'music_play_sound_effect': return 'Jouer effet sonore';
+        case 'music_stop_all_sounds': return 'Arrêter tous les sons';
+        case 'music_set_speaker_enabled': return `${f.ENABLED === 'true' ? 'Activer' : 'Désactiver'} le haut-parleur`;
+
+        // === VARIABLES / CONTRÔLE ===
+        case 'variables_set': return `Définir ${f.VAR || '?'} = ${v.VALUE || '?'}`;
+        case 'variables_change': return `Modifier ${f.VAR || '?'} de ${v.DELTA || '?'}`;
+        case 'math_change': return `Modifier ${f.VAR || '?'} de ${v.DELTA || '?'}`;
+        case 'controls_if': return 'Si (condition)…';
+        case 'controls_repeat_ext': return `Répéter ${v.TIMES || '?'} fois`;
+        case 'controls_whileUntil': return 'Tant que (condition)…';
+
+        // === CUTEBOT MOTEURS ===
+        case 'cutebot_motors': return `Moteurs G=${v.LEFT_SPEED||0}% D=${v.RIGHT_SPEED||0}%`;
+        case 'cutebot_move_time': {
+            const dirs = {forward:'avancer',backward:'reculer',left:'gauche',right:'droite'};
+            return `${dirs[f.DIRECTION]||f.DIRECTION||'?'} à ${v.SPEED||'?'}% pendant ${v.TIME||'?'}s`;
+        }
+        case 'cutebot_forward': return 'Avancer pleine vitesse';
+        case 'cutebot_backward': return 'Reculer pleine vitesse';
+        case 'cutebot_turn_left': return 'Tourner à gauche';
+        case 'cutebot_turn_right': return 'Tourner à droite';
+        case 'cutebot_stop': return 'Arrêter les moteurs';
+
+        // === CUTEBOT LEDs ===
+        case 'cutebot_led_color': {
+            const sides = {RGB_L:'droite',RGB_R:'gauche',ALL:'les deux'};
+            return `LED ${sides[f.LIGHT]||f.LIGHT||'?'} couleur ${v.COLOR||'?'}`;
+        }
+        case 'cutebot_led_rgb': {
+            const sides = {RGB_L:'droite',RGB_R:'gauche',ALL:'les deux'};
+            return `LED ${sides[f.LIGHT]||f.LIGHT||'?'} couleur ${f.COLOR||'?'}`;
+        }
+        case 'cutebot_led_off': return 'Éteindre les LEDs';
+
+        // === CUTEBOT CAPTEURS ===
+        case 'cutebot_ultrasonic': return `Distance ultrason (${f.UNIT === 'Inches' ? 'pouces' : 'cm'})`;
+        case 'cutebot_tracking_state': {
+            const states = {L_R_line:'● ●',L_unline_R_line:'◌ ●',L_line_R_unline:'● ◌',L_R_unline:'◌ ◌'};
+            return `Capteurs de ligne = ${states[f.STATE]||f.STATE||'?'}`;
+        }
+        case 'cutebot_track_side': {
+            const side = f.SIDE === 'Right' ? 'droit' : 'gauche';
+            const state = f.STATE === 'LoseLine' ? 'pas de ligne' : 'la ligne';
+            return `Capteur ${side} voit ${state}`;
+        }
+        case 'cutebot_ir_button_pressed': return `Touche IR "${f.BUTTON || '?'}" pressée ?`;
+        case 'cutebot_if': return 'Si condition…';
+
+        // === CUTEBOT SERVO ===
+        case 'cutebot_servo': return `Servo ${f.SERVO||'?'} angle ${v.ANGLE||'?'}°`;
+
+        // === RADIO ===
+        case 'radio_set_group': return `Définir groupe radio ${v.GROUP || '?'}`;
+        case 'radio_send_number': return `Envoyer nombre ${v.VALUE || '?'} par radio`;
+        case 'radio_send_string': return `Envoyer texte "${v.VALUE || '?'}" par radio`;
+        case 'radio_send_value': return `Envoyer "${v.NAME||'?'}" = ${v.VALUE||'?'} par radio`;
+        case 'radio_set_transmit_power': return `Puissance radio ${v.POWER || '?'}`;
+        case 'radio_received_packet': return `Paquet reçu (${f.PROPERTY || '?'})`;
+
+        default: return t.replace(/_/g, ' ');
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+// FILE PARSING
+// ═══════════════════════════════════════════════════════════
+function extractBlocklyXml(fileContent, fileName) {
+    const text = fileContent.trim();
+
+    // HEX file with embedded project
+    if (text.startsWith(':') || fileName.endsWith('.hex')) {
+        const marker = '### PBLOCKS_PROJECT ###';
+        const idx = text.indexOf(marker);
+        if (idx === -1) return null;
+        const jsonStr = text.substring(idx + marker.length).trim();
+        try {
+            const meta = JSON.parse(jsonStr);
+            // Return card1 XML (main program)
+            return meta.card1 || meta.card1Xml || null;
+        } catch(e) { return null; }
+    }
+
+    // JSON format
+    if (text.startsWith('{')) {
+        try {
+            const data = JSON.parse(text);
+            if (data.version === 2) return data.card1;
+            return data.xml || null;
+        } catch(e) { return null; }
+    }
+
+    // Direct XML
+    if (text.startsWith('<')) return text;
+
+    return null;
+}
+
+// Extract both cards for coherence analysis
+function extractBothCards(fileContent, fileName) {
+    const text = fileContent.trim();
+    if (text.startsWith(':') || fileName.endsWith('.hex')) {
+        const marker = '### PBLOCKS_PROJECT ###';
+        const idx = text.indexOf(marker);
+        if (idx === -1) return { card1: null, card2: null };
+        try {
+            const meta = JSON.parse(text.substring(idx + marker.length).trim());
+            return { card1: meta.card1 || meta.card1Xml || null, card2: meta.card2 || meta.card2Xml || null };
+        } catch(e) { return { card1: null, card2: null }; }
+    }
+    if (text.startsWith('{')) {
+        try {
+            const data = JSON.parse(text);
+            return { card1: data.card1 || data.xml || null, card2: data.card2 || null };
+        } catch(e) { return { card1: null, card2: null }; }
+    }
+    if (text.startsWith('<')) return { card1: text, card2: null };
+    return { card1: null, card2: null };
+}
+
+// ═══════════════════════════════════════════════════════════
+// BLOCKLY XML PARSER
+// ═══════════════════════════════════════════════════════════
+function parseBlocklyXml(xmlString) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlString, 'text/xml');
+    const blocks = doc.querySelectorAll('xml > block');
+    const result = [];
+
+    blocks.forEach(blockEl => {
+        const parsed = parseBlock(blockEl);
+        if (parsed) result.push(parsed);
+    });
+    return result;
+}
+
+function parseBlock(el) {
+    if (!el) return null;
+    const type = el.getAttribute('type');
+    const fields = {};
+    const values = {};
+    const statements = {};
+    let next = null;
+
+    for (const child of el.children) {
+        const tag = child.tagName;
+        if (tag === 'field') {
+            fields[child.getAttribute('name')] = child.textContent;
+        } else if (tag === 'value') {
+            const name = child.getAttribute('name');
+            const innerBlock = child.querySelector('block, shadow');
+            if (innerBlock) {
+                const innerParsed = parseBlock(innerBlock);
+                // Try to extract a simple value
+                if (innerParsed && innerParsed.type === 'math_number') {
+                    values[name] = innerParsed.fields.NUM || '0';
+                } else if (innerParsed && innerParsed.type === 'text') {
+                    values[name] = innerParsed.fields.TEXT || '';
+                } else if (innerParsed && innerParsed.type === 'note_freq') {
+                    values[name] = innerParsed.fields.NOTE || '262';
+                } else {
+                    values[name] = innerParsed;  // complex expression
+                }
+            }
+        } else if (tag === 'statement') {
+            const name = child.getAttribute('name');
+            const stBlock = child.querySelector('block');
+            statements[name] = stBlock ? parseBlockChain(stBlock) : [];
+        } else if (tag === 'next') {
+            const nextBlock = child.querySelector('block');
+            next = nextBlock ? parseBlock(nextBlock) : null;
+        }
+    }
+
+    return { type, fields, values, statements, next };
+}
+
+function parseBlockChain(firstBlock) {
+    const chain = [];
+    let current = firstBlock;
+    while (current) {
+        const parsed = parseBlock(current);
+        if (parsed) {
+            chain.push(parsed);
+            // Follow 'next' chain
+            if (parsed.next) {
+                chain.push(...flattenChain(parsed.next));
+            }
+        }
+        break;  // next is handled via parsed.next
+    }
+    return chain;
+}
+
+function flattenChain(block) {
+    const chain = [block];
+    if (block.next) chain.push(...flattenChain(block.next));
+    return chain;
+}
+
+// ═══════════════════════════════════════════════════════════
+// HAT BLOCK EXTRACTION
+// ═══════════════════════════════════════════════════════════
+const HAT_TYPES = ['on_start','forever','input_on_button_pressed','input_on_gesture',
+    'input_on_logo_event','radio_on_received_number','radio_on_received_string',
+    'cutebot_on_ir_receive','cutebot_on_track_event'];
+
+function extractHatBlocks(blocks) {
+    const hats = [];
+    for (const block of blocks) {
+        if (HAT_TYPES.includes(block.type)) {
+            const actions = [];
+            // Get the statement content (DO or HANDLER)
+            const stmtKey = Object.keys(block.statements)[0];
+            if (stmtKey && block.statements[stmtKey]) {
+                extractActionsFromChain(block.statements[stmtKey], actions);
+            }
+            hats.push({
+                type: block.type,
+                fields: block.fields,
+                key: getHatKey(block),
+                name: getHatName(block.type, block.fields),
+                actions: actions
+            });
+        }
+    }
+    return hats;
+}
+
+function getHatKey(block) {
+    let key = block.type;
+    if (block.fields.BUTTON) key += '_' + block.fields.BUTTON;
+    if (block.fields.GESTURE) key += '_' + block.fields.GESTURE;
+    if (block.fields.SENSOR) key += '_' + block.fields.SENSOR;
+    if (block.fields.EVENT) key += '_' + block.fields.EVENT;
+    // Radio hats don't have distinguishing fields — they're unique by type
+    return key;
+}
+
+function extractActionsFromChain(chain, actions, depth = 0) {
+    for (const block of chain) {
+        // Create action entry
+        const action = {
+            type: block.type,
+            fields: { ...block.fields },
+            values: {},
+            depth: depth,
+            subActions: []
+        };
+
+        // Resolve simple values
+        for (const [k, v] of Object.entries(block.values)) {
+            if (typeof v === 'string' || typeof v === 'number') {
+                action.values[k] = String(v);
+            } else if (v && v.type === 'math_number') {
+                action.values[k] = v.fields.NUM || '0';
+            } else if (v && v.type === 'text') {
+                action.values[k] = v.fields.TEXT || '';
+            } else if (v && typeof v === 'object') {
+                action.values[k] = '[expr]';
+                action._complexValues = action._complexValues || {};
+                action._complexValues[k] = v;
+            }
+        }
+
+        // Handle LED pattern field
+        if (block.type === 'basic_show_leds' && block.fields.MATRIX) {
+            action._ledPattern = normalizeLedPattern(block.fields.MATRIX);
+        }
+        if (block.type === 'basic_show_icon' && block.fields.ICON) {
+            action._ledPattern = ICON_PATTERNS[block.fields.ICON] || null;
+        }
+        if (block.type === 'basic_show_arrow' && block.fields.DIRECTION) {
+            action._ledPattern = ARROW_PATTERNS[block.fields.DIRECTION] || null;
+        }
+
+        // Normalize cutebot LED color for comparison
+        if (block.type === 'cutebot_led_rgb' && action.fields.COLOR) {
+            action._normalizedColor = normalizeColor(action.fields.COLOR);
+        }
+        if (block.type === 'cutebot_led_color' && action.values.COLOR) {
+            action._normalizedColor = normalizeColor(action.values.COLOR);
+        }
+
+        // Normalize music frequency for cross-block comparison
+        if (block.type === 'music_play_tone' && action.fields.NOTE) {
+            action._frequency = String(action.fields.NOTE);
+        }
+        if (block.type === 'music_play_tone_freq' && action.values.FREQ) {
+            action._frequency = String(action.values.FREQ);
+        }
+        if (block.type === 'music_ring_tone' && action.fields.NOTE) {
+            action._frequency = String(action.fields.NOTE);
+        }
+
+        // Process nested statements (if, repeat, etc.)
+        for (const [stmtName, stmtChain] of Object.entries(block.statements)) {
+            if (stmtChain.length > 0) {
+                extractActionsFromChain(stmtChain, action.subActions, depth + 1);
+            }
+        }
+
+        actions.push(action);
+    }
+}
+
+function normalizeLedPattern(ledsStr) {
+    // LED field is a 25-char string of 0s and 1s (rows left-to-right, top-to-bottom)
+    if (!ledsStr) return '';
+    // Remove any non-0/1 characters
+    const clean = String(ledsStr).replace(/[^01]/g, '');
+    // Pad to 25 chars if needed
+    return clean.padEnd(25, '0').substring(0, 25);
+}
+
+// ═══════════════════════════════════════════════════════════
+// COMPARISON ENGINE
+// ═══════════════════════════════════════════════════════════
+function comparePrograms(refHats, studentHats, mode) {
+    const details = [];
+    let totalEarned = 0;
+    const pointsPerHat = refHats.length > 0 ? TOTAL_POINTS / refHats.length : 0;
+
+    for (const refHat of refHats) {
+        // Find matching hat in student program
+        const studentHat = studentHats.find(h => h.key === refHat.key);
+
+        const hatDetail = {
+            name: refHat.name,
+            key: refHat.key,
+            maxPoints: pointsPerHat,
+            earned: 0,
+            found: !!studentHat,
+            actionResults: []
+        };
+
+        if (studentHat && refHat.actions.length > 0) {
+            const pointsPerAction = pointsPerHat / refHat.actions.length;
+
+            if (mode === 'identical') {
+                hatDetail.actionResults = compareIdentical(refHat.actions, studentHat.actions, pointsPerAction);
+            } else {
+                hatDetail.actionResults = compareObjective(refHat.actions, studentHat.actions, pointsPerAction);
+            }
+            hatDetail.earned = hatDetail.actionResults.reduce((s, a) => s + a.earned, 0);
+        } else if (studentHat && refHat.actions.length === 0) {
+            // Hat exists and ref is empty -> full points
+            hatDetail.earned = pointsPerHat;
+        }
+
+        totalEarned += hatDetail.earned;
+        details.push(hatDetail);
+    }
+
+    // Find extra hats (in student but not in reference)
+    const extraHats = studentHats.filter(sh => !refHats.find(rh => rh.key === sh.key));
+
+    return {
+        score: Math.round(totalEarned * 10) / 10,
+        maxScore: TOTAL_POINTS,
+        details: details,
+        extraHats: extraHats
+    };
+}
+
+// ═══════════════════════════════════════════════════════════
+// DATA FLOW COHERENCE ANALYSIS
+// ═══════════════════════════════════════════════════════════
+// Vérifie que le programme de l'élève fonctionne réellement :
+// - Les valeurs envoyées par radio correspondent aux valeurs testées en réception
+// - Les groupes radio sont cohérents entre les cartes
+// Retourne une liste de problèmes avec pénalités
+
+function checkDataFlowCoherence(card1Hats, card2Hats) {
+    const issues = [];
+
+    // Collecter les flux de données de chaque carte
+    const card1Data = collectCardDataFlow(card1Hats);
+    const card2Data = card2Hats ? collectCardDataFlow(card2Hats) : card1Data;
+    // Si pas de carte 2, on suppose le même programme
+
+    // === Vérifier cohérence radio numérique ===
+    // Carte 1 envoie → Carte 2 reçoit
+    if (card1Data.radioSentNumbers.size > 0 && card2Data.radioExpectedNumbers.size > 0) {
+        const hasMatch = [...card1Data.radioSentNumbers].some(v => card2Data.radioExpectedNumbers.has(v));
+        if (!hasMatch) {
+            issues.push({
+                type: 'radio_number_mismatch',
+                desc: `⚠️ Incohérence radio : carte 1 envoie ${[...card1Data.radioSentNumbers].join(', ')} mais carte 2 teste == ${[...card2Data.radioExpectedNumbers].join(', ')}`,
+                affectedHatKeys: ['radio_on_received_number'],
+                penalty: 0.5
+            });
+        }
+    }
+
+    // Carte 2 envoie → Carte 1 reçoit (si cartes différentes)
+    if (card2Hats && card2Data.radioSentNumbers.size > 0 && card1Data.radioExpectedNumbers.size > 0) {
+        const hasMatch = [...card2Data.radioSentNumbers].some(v => card1Data.radioExpectedNumbers.has(v));
+        if (!hasMatch) {
+            issues.push({
+                type: 'radio_number_mismatch_reverse',
+                desc: `⚠️ Incohérence radio : carte 2 envoie ${[...card2Data.radioSentNumbers].join(', ')} mais carte 1 teste == ${[...card1Data.radioExpectedNumbers].join(', ')}`,
+                affectedHatKeys: ['radio_on_received_number'],
+                penalty: 0.5
+            });
+        }
+    }
+
+    // === Vérifier cohérence radio texte ===
+    if (card1Data.radioSentStrings.size > 0 && card2Data.radioExpectedStrings.size > 0) {
+        const hasMatch = [...card1Data.radioSentStrings].some(v => card2Data.radioExpectedStrings.has(v));
+        if (!hasMatch) {
+            issues.push({
+                type: 'radio_string_mismatch',
+                desc: `⚠️ Incohérence radio texte : carte 1 envoie "${[...card1Data.radioSentStrings].join('", "')}" mais carte 2 teste "${[...card2Data.radioExpectedStrings].join('", "')}"`,
+                affectedHatKeys: ['radio_on_received_string'],
+                penalty: 0.5
+            });
+        }
+    }
+
+    // === Vérifier groupe radio identique ===
+    if (card2Hats && card1Data.radioGroups.size > 0 && card2Data.radioGroups.size > 0) {
+        const hasCommonGroup = [...card1Data.radioGroups].some(g => card2Data.radioGroups.has(g));
+        if (!hasCommonGroup) {
+            issues.push({
+                type: 'radio_group_mismatch',
+                desc: `⚠️ Groupes radio différents : carte 1 = ${[...card1Data.radioGroups].join(', ')}, carte 2 = ${[...card2Data.radioGroups].join(', ')}`,
+                affectedHatKeys: ['on_start'],
+                penalty: 0.3
+            });
+        }
+    }
+
+    return issues;
+}
+
+function collectCardDataFlow(hats) {
+    const data = {
+        radioSentNumbers: new Set(),
+        radioSentStrings: new Set(),
+        radioExpectedNumbers: new Set(),
+        radioExpectedStrings: new Set(),
+        radioGroups: new Set()
+    };
+
+    for (const hat of hats) {
+        // Collecter les envois et groupes depuis TOUS les chapeaux
+        collectRadioSends(hat.actions, data);
+
+        // Collecter les valeurs testées dans les handlers radio
+        if (hat.type === 'radio_on_received_number') {
+            collectComparisonValues(hat.actions, data.radioExpectedNumbers);
+        }
+        if (hat.type === 'radio_on_received_string') {
+            collectComparisonValuesStr(hat.actions, data.radioExpectedStrings);
+        }
+    }
+    return data;
+}
+
+function collectRadioSends(actions, data) {
+    for (const action of actions) {
+        if (action.type === 'radio_send_number') {
+            const v = action.values.VALUE;
+            if (v && v !== '[expr]') data.radioSentNumbers.add(v);
+        }
+        if (action.type === 'radio_send_string') {
+            const v = action.values.VALUE;
+            if (v && v !== '[expr]') data.radioSentStrings.add(v);
+        }
+        if (action.type === 'radio_set_group') {
+            const v = action.values.GROUP;
+            if (v && v !== '[expr]') data.radioGroups.add(v);
+        }
+        // Recurse into sub-actions (inside if-blocks, loops, etc.)
+        if (action.subActions && action.subActions.length > 0) {
+            collectRadioSends(action.subActions, data);
+        }
+    }
+}
+
+// Extraire les valeurs numériques testées dans des if(receivedNumber == X)
+function collectComparisonValues(actions, expectedSet) {
+    for (const action of actions) {
+        if ((action.type === 'cutebot_if' || action.type === 'controls_if') && action._complexValues) {
+            for (const [key, expr] of Object.entries(action._complexValues)) {
+                if (!key.startsWith('IF') || !expr || expr.type !== 'logic_compare') continue;
+                // Chercher la valeur comparée (le nombre dans la comparaison)
+                const valA = expr.values && expr.values.A;
+                const valB = expr.values && expr.values.B;
+                // Identifier quel côté est la variable et quel côté est la constante
+                if (valA && valA.type === 'math_number' && valA.fields) {
+                    expectedSet.add(valA.fields.NUM);
+                }
+                if (valB && valB.type === 'math_number' && valB.fields) {
+                    expectedSet.add(valB.fields.NUM);
+                }
+                // Aussi gérer le cas où la valeur est dans un shadow
+                if (typeof valA === 'string' && /^\d+$/.test(valA)) expectedSet.add(valA);
+                if (typeof valB === 'string' && /^\d+$/.test(valB)) expectedSet.add(valB);
+            }
+        }
+        if (action.subActions && action.subActions.length > 0) {
+            collectComparisonValues(action.subActions, expectedSet);
+        }
+    }
+}
+
+function collectComparisonValuesStr(actions, expectedSet) {
+    for (const action of actions) {
+        if ((action.type === 'cutebot_if' || action.type === 'controls_if') && action._complexValues) {
+            for (const [key, expr] of Object.entries(action._complexValues)) {
+                if (!key.startsWith('IF') || !expr || expr.type !== 'logic_compare') continue;
+                const valA = expr.values && expr.values.A;
+                const valB = expr.values && expr.values.B;
+                if (valA && valA.type === 'text' && valA.fields) expectedSet.add(valA.fields.TEXT);
+                if (valB && valB.type === 'text' && valB.fields) expectedSet.add(valB.fields.TEXT);
+            }
+        }
+        if (action.subActions && action.subActions.length > 0) {
+            collectComparisonValuesStr(action.subActions, expectedSet);
+        }
+    }
+}
+
+// Appliquer les pénalités de cohérence au résultat de la correction
+function applyCoherencePenalties(result, issues) {
+    if (issues.length === 0) return result;
+
+    for (const issue of issues) {
+        for (const detail of result.details) {
+            if (issue.affectedHatKeys.some(k => detail.key.startsWith(k) || detail.key === k)) {
+                const penalty = issue.penalty;
+                detail.earned = Math.round(detail.earned * (1 - penalty) * 100) / 100;
+                if (!detail.coherenceIssue) {
+                    detail.coherenceIssue = issue.desc;
+                }
+            }
+        }
+    }
+
+    // Recalculer le score total
+    const newTotal = result.details.reduce((s, d) => s + d.earned, 0);
+    result.score = Math.round(newTotal * 10) / 10;
+    result.coherenceIssues = issues;
+
+    return result;
+}
+
+// ═══════════════════════════════════════════════════════════
+// END-TO-END BEHAVIOR TRACING
+// ═══════════════════════════════════════════════════════════
+// Trace la chaîne complète : Déclencheur → envoi radio → réception →
+// condition → action finale. Compare le comportement observable
+// entre la référence et l'élève pour chaque déclencheur.
+
+function checkEndToEndBehavior(refHats, studentHats, refCard2Hats, studentCard2Hats) {
+    const issues = [];
+
+    // Cartes réceptrices (carte 2 si elle existe, sinon même carte)
+    const refReceivers = refCard2Hats || refHats;
+    const stuReceivers = studentCard2Hats || studentHats;
+
+    // Tracer les comportements bout-en-bout
+    const refBehavior = traceTriggersToEffects(refHats, refReceivers);
+    const stuBehavior = traceTriggersToEffects(studentHats, stuReceivers);
+
+    // Comparer trigger par trigger
+    for (const [triggerKey, refEffects] of Object.entries(refBehavior)) {
+        const stuEffects = stuBehavior[triggerKey] || [];  // Pas d'effet = liste vide
+        if (refEffects.length === 0 && stuEffects.length === 0) continue;
+
+        // Comparer les actions finales observables
+        const match = compareEffectLists(refEffects, stuEffects);
+        if (!match.matches && match.details) {
+            issues.push({
+                type: 'end_to_end_mismatch',
+                desc: `⚠️ Comportement inversé/incorrect : ${match.details}`,
+                affectedHatKeys: ['radio_on_received_number', 'radio_on_received_string'],
+                penalty: 0.5
+            });
+            break; // Un seul message suffit pour tout le programme
+        }
+    }
+
+    return issues;
+}
+
+// Trace pour chaque déclencheur (bouton A, B, etc.) les effets finaux observables
+function traceTriggersToEffects(hats, receiverHats) {
+    const behavior = {};
+
+    // Trouver les hats déclencheurs (boutons, gestes, etc.)
+    const triggerHats = hats.filter(h => h.type.startsWith('input_on_'));
+
+    // Trouver les handlers radio dans les récepteurs
+    const radioNumHandler = receiverHats.find(h => h.type === 'radio_on_received_number');
+    const radioStrHandler = receiverHats.find(h => h.type === 'radio_on_received_string');
+
+    // Construire la carte condition→effets pour le handler radio
+    const conditionMap = {};
+    if (radioNumHandler) {
+        buildConditionMap(radioNumHandler.actions, conditionMap);
+    }
+
+    for (const trigger of triggerHats) {
+        const effects = [];
+
+        // Collecter les effets directs (actions dans le handler du bouton)
+        for (const action of trigger.actions) {
+            if (isObservableEffect(action)) {
+                effects.push(describeEffect(action));
+            }
+        }
+
+        // Tracer via radio : que se passe-t-il quand le nombre envoyé est reçu ?
+        for (const action of trigger.actions) {
+            if (action.type === 'radio_send_number' && action.values.VALUE && action.values.VALUE !== '[expr]') {
+                const sentValue = action.values.VALUE;
+                // Quelles actions s'exécutent quand on reçoit cette valeur ?
+                if (conditionMap[sentValue]) {
+                    for (const subAction of conditionMap[sentValue]) {
+                        effects.push(describeEffect(subAction));
+                    }
+                }
+            }
+            if (action.type === 'radio_send_string' && action.values.VALUE && action.values.VALUE !== '[expr]') {
+                const sentValue = action.values.VALUE;
+                if (conditionMap[sentValue]) {
+                    for (const subAction of conditionMap[sentValue]) {
+                        effects.push(describeEffect(subAction));
+                    }
+                }
+            }
+        }
+
+        if (effects.length > 0) {
+            behavior[trigger.key] = effects;
+        }
+    }
+
+    return behavior;
+}
+
+// Construire la carte : valeur_testée → [actions qui s'exécutent]
+function buildConditionMap(actions, map) {
+    for (const action of actions) {
+        if ((action.type === 'cutebot_if' || action.type === 'controls_if') && action._complexValues) {
+            for (const [key, expr] of Object.entries(action._complexValues)) {
+                if (!key.startsWith('IF') || !expr || expr.type !== 'logic_compare') continue;
+
+                // Extraire la valeur constante de la comparaison
+                const constVal = extractConstantFromComparison(expr);
+                if (constVal !== null && action.subActions && action.subActions.length > 0) {
+                    map[constVal] = action.subActions;
+                }
+            }
+        }
+        // Récurser dans les sous-actions (if imbriqués)
+        if (action.subActions && action.subActions.length > 0) {
+            buildConditionMap(action.subActions, map);
+        }
+    }
+}
+
+function extractConstantFromComparison(expr) {
+    if (!expr.values) return null;
+    const valA = expr.values.A;
+    const valB = expr.values.B;
+
+    // Identifier le côté constante (math_number ou text)
+    if (valB && valB.type === 'math_number' && valB.fields) return valB.fields.NUM;
+    if (valA && valA.type === 'math_number' && valA.fields) return valA.fields.NUM;
+    if (valB && valB.type === 'text' && valB.fields) return valB.fields.TEXT;
+    if (valA && valA.type === 'text' && valA.fields) return valA.fields.TEXT;
+    // Valeur directe
+    if (typeof valB === 'string' && valB !== '[expr]') return valB;
+    if (typeof valA === 'string' && valA !== '[expr]') return valA;
+
+    return null;
+}
+
+// Est-ce une action avec un effet observable ?
+function isObservableEffect(action) {
+    const observableTypes = new Set([
+        'servo_set_angle', 'basic_show_icon', 'basic_show_leds', 'basic_show_arrow',
+        'basic_show_string', 'basic_show_number', 'basic_clear_screen',
+        'cutebot_forward', 'cutebot_backward', 'cutebot_turn_left', 'cutebot_turn_right',
+        'cutebot_motors', 'cutebot_stop', 'cutebot_move_time',
+        'cutebot_led_color', 'cutebot_led_rgb', 'cutebot_led_off',
+        'led_plot', 'led_unplot', 'led_toggle',
+        'music_play_tone', 'music_play_tone_freq', 'music_ring_tone',
+        'cutebot_servo'
+    ]);
+    return observableTypes.has(action.type);
+}
+
+// Décrire un effet de manière normalisée pour comparaison
+function describeEffect(action) {
+    const t = action.type;
+    const f = action.fields || {};
+    const v = action.values || {};
+
+    if (t === 'servo_set_angle') return `servo:${f.PIN || '?'}=${v.ANGLE || '?'}`;
+    if (t === 'cutebot_motors') return `motors:${v.LEFT_SPEED || '?'},${v.RIGHT_SPEED || '?'}`;
+    if (t === 'cutebot_forward') return `forward:${v.SPEED || '?'}`;
+    if (t === 'cutebot_backward') return `backward:${v.SPEED || '?'}`;
+    if (t === 'cutebot_turn_left') return `turn_left:${v.SPEED || '?'}`;
+    if (t === 'cutebot_turn_right') return `turn_right:${v.SPEED || '?'}`;
+    if (t === 'cutebot_stop') return 'stop';
+    if (t === 'cutebot_led_color') return `led:${f.LIGHT || '?'}=${v.COLOR || f.COLOR || '?'}`;
+    if (t === 'cutebot_led_rgb') return `led:${f.LIGHT || '?'}=${f.COLOR || '?'}`;
+    if (t === 'cutebot_led_off') return `led_off:${f.LIGHT || 'all'}`;
+    if (t === 'basic_show_icon') return `icon:${f.ICON || '?'}`;
+    if (t === 'basic_show_leds') return `leds:${action._ledPattern || f.MATRIX || '?'}`;
+    if (t === 'basic_show_arrow') return `arrow:${f.DIRECTION || '?'}`;
+    if (t === 'basic_show_number') return `show_num:${v.NUM || '?'}`;
+    if (t === 'basic_show_string') return `show_str:${v.TEXT || '?'}`;
+    if (t === 'led_plot') return `plot:${v.X},${v.Y}`;
+    if (t === 'led_unplot') return `unplot:${v.X},${v.Y}`;
+    if (t === 'music_play_tone' || t === 'music_ring_tone') return `tone:${f.NOTE || '?'}`;
+    if (t === 'music_play_tone_freq') return `tone:${v.FREQ || '?'}`;
+
+    return `${t}`;
+}
+
+// Comparer deux listes d'effets
+function compareEffectLists(refEffects, stuEffects) {
+    // Si la ref a des effets mais pas l'élève → erreur (rien ne se passe)
+    if (refEffects.length > 0 && stuEffects.length === 0) {
+        const refDesc = refEffects.map(e => humanReadableEffect(e)).join(' + ');
+        return {
+            matches: false,
+            details: `attendu [${refDesc}], trouvé [aucun effet]`
+        };
+    }
+
+    // Si ni l'un ni l'autre n'ont d'effets → OK
+    if (refEffects.length === 0) {
+        return { matches: true };
+    }
+
+    // Normaliser et trier les listes pour comparaison
+    const refSorted = [...refEffects].sort().join('|');
+    const stuSorted = [...stuEffects].sort().join('|');
+
+    if (refSorted === stuSorted) {
+        return { matches: true };
+    }
+
+    // Construire un message descriptif
+    const refDesc = refEffects.map(e => humanReadableEffect(e)).join(' + ');
+    const stuDesc = stuEffects.map(e => humanReadableEffect(e)).join(' + ');
+
+    return {
+        matches: false,
+        details: `attendu [${refDesc}], trouvé [${stuDesc}]`
+    };
+}
+
+function humanReadableEffect(effect) {
+    if (effect.startsWith('servo:')) {
+        const m = effect.match(/servo:(P\d)=(\d+)/);
+        return m ? `servo ${m[1]}→${m[2]}°` : effect;
+    }
+    if (effect.startsWith('forward')) return 'avancer';
+    if (effect.startsWith('backward')) return 'reculer';
+    if (effect.startsWith('turn_left')) return 'tourner gauche';
+    if (effect.startsWith('turn_right')) return 'tourner droite';
+    if (effect === 'stop') return 'arrêter';
+    if (effect.startsWith('icon:')) return `icône ${effect.slice(5)}`;
+    if (effect.startsWith('led:')) return `LED ${effect.slice(4)}`;
+    if (effect.startsWith('tone:')) return `note ${effect.slice(5)}`;
+    return effect;
+}
+
+// --- Identical mode ---
+function compareIdentical(refActions, studentActions, pointsPerAction) {
+    const results = [];
+    for (let i = 0; i < refActions.length; i++) {
+        const ref = refActions[i];
+        const stu = studentActions[i] || null;
+        const desc = getActionDesc(ref);
+
+        if (!stu) {
+            results.push({ desc, status: 'missing', earned: 0, max: pointsPerAction, note: 'Bloc manquant' });
+            continue;
+        }
+
+        if (ref.type !== stu.type) {
+            results.push({ desc, status: 'wrong', earned: 0, max: pointsPerAction,
+                note: `Attendu: ${ref.type}, trouvé: ${stu.type}` });
+            continue;
+        }
+
+        // Check fields match
+        const fieldsMatch = Object.keys(ref.fields).every(k => ref.fields[k] === stu.fields[k]);
+        const valuesMatch = Object.keys(ref.values).every(k => String(ref.values[k]) === String(stu.values[k]));
+
+        // Check sub-actions (nested blocks)
+        let subMatch = true;
+        if (ref.subActions.length > 0) {
+            const subResults = compareIdentical(ref.subActions, stu.subActions || [], pointsPerAction / ref.subActions.length);
+            const subScore = subResults.reduce((s, a) => s + a.earned, 0);
+            const subMax = subResults.reduce((s, a) => s + a.max, 0);
+            subMatch = subMax > 0 ? (subScore / subMax > 0.8) : true;
+        }
+
+        if (fieldsMatch && valuesMatch && subMatch) {
+            results.push({ desc, status: 'correct', earned: pointsPerAction, max: pointsPerAction });
+        } else if (fieldsMatch) {
+            results.push({ desc, status: 'partial', earned: pointsPerAction * 0.5, max: pointsPerAction,
+                note: 'Valeurs différentes' });
+        } else {
+            results.push({ desc, status: 'wrong', earned: 0, max: pointsPerAction,
+                note: 'Paramètres incorrects' });
+        }
+    }
+    return results;
+}
+
+// --- Objective mode ---
+function compareObjective(refActions, studentActions, pointsPerAction) {
+    const results = [];
+    const usedStudentIndices = new Set();
+
+    for (const ref of refActions) {
+        const desc = getActionDesc(ref);
+        let bestMatch = null;
+        let bestScore = 0;
+        let bestIdx = -1;
+
+        for (let j = 0; j < studentActions.length; j++) {
+            if (usedStudentIndices.has(j)) continue;
+            const score = actionSimilarity(ref, studentActions[j]);
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = studentActions[j];
+                bestIdx = j;
+            }
+        }
+
+        if (bestScore >= 0.8) {
+            usedStudentIndices.add(bestIdx);
+            results.push({ desc, status: 'correct', earned: pointsPerAction, max: pointsPerAction });
+        } else if (bestScore >= 0.4) {
+            usedStudentIndices.add(bestIdx);
+            const partial = pointsPerAction * bestScore;
+            results.push({ desc, status: 'partial', earned: Math.round(partial * 100) / 100, max: pointsPerAction,
+                note: getPartialNote(ref, bestMatch) });
+        } else {
+            results.push({ desc, status: 'missing', earned: 0, max: pointsPerAction, note: 'Non trouvé' });
+        }
+    }
+    return results;
+}
+
+function actionSimilarity(ref, stu) {
+    if (!stu) return 0;
+
+    // ═══════════════════════════════════════════════════════════════
+    // PRINCIPE : même résultat observable = score 1.0
+    // On vérifie d'abord les équivalences de RÉSULTAT avant
+    // de tomber sur les comparaisons structurelles
+    // ═══════════════════════════════════════════════════════════════
+
+    const rt = ref.type, st = stu.type;
+
+    // ── 1. MÊME MOTIF LED (icône ↔ show_leds ↔ flèche) ──
+    // Si les deux blocs produisent exactement les mêmes LEDs allumées → 1.0
+    if (ref._ledPattern && stu._ledPattern) {
+        if (ref._ledPattern === stu._ledPattern) return 1.0;
+        // Patterns différents mais même famille d'affichage → partiel
+        return 0.4;
+    }
+
+    // ── 2. MÊME BLOC, comparer les paramètres ──
+    if (rt === st) {
+        // En mode objectif, utiliser le bon bloc est l'essentiel.
+        // Les fields (dropdowns, choix) confirment la bonne config.
+        // Les values (nombres saisis) sont un bonus — un élève qui
+        // utilise le bon bloc avec les bons champs mais une valeur
+        // différente (ex: radio_send_number(1) au lieu de (0)) a
+        // compris l'objectif même si sa valeur arbitraire diffère.
+        let score = 0.6;  // base : bon type de bloc
+
+        const fieldKeys = Object.keys(ref.fields);
+        if (fieldKeys.length > 0) {
+            const matches = fieldKeys.filter(k => ref.fields[k] === stu.fields[k]).length;
+            score += 0.25 * (matches / fieldKeys.length);
+        } else {
+            score += 0.25;
+        }
+
+        const valueKeys = Object.keys(ref.values);
+        if (valueKeys.length > 0) {
+            let valScore = 0;
+            for (const k of valueKeys) {
+                const rv = String(ref.values[k]);
+                const sv = String(stu.values[k] || '');
+                if (rv === sv) valScore += 1;
+                else if (rv === '[expr]' || sv === '[expr]') valScore += 0.5;
+                else if (isNumericClose(rv, sv, 0.3)) valScore += 0.7;
+            }
+            score += 0.15 * (valScore / valueKeys.length);
+        } else {
+            score += 0.15;
+        }
+
+        return score;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ÉQUIVALENCES INTER-BLOCS par résultat observable
+    // ═══════════════════════════════════════════════════════════════
+
+    // ── CUTEBOT MOTEURS : même direction = même résultat ──
+    if (isForwardAction(rt, ref) && isForwardAction(st, stu)) return 1.0;
+    if (isBackwardAction(rt, ref) && isBackwardAction(st, stu)) return 1.0;
+    if (isTurnLeftAction(rt, ref) && isTurnLeftAction(st, stu)) return 1.0;
+    if (isTurnRightAction(rt, ref) && isTurnRightAction(st, stu)) return 1.0;
+
+    // cutebot_stop ↔ cutebot_motors(0, 0) : même résultat (arrêt)
+    if (isStopAction(rt, ref) && isStopAction(st, stu)) return 1.0;
+
+    // Mouvements cutebot de directions différentes → partiel
+    const moveTypes = new Set(['cutebot_forward','cutebot_backward','cutebot_turn_left','cutebot_turn_right','cutebot_motors','cutebot_move_time','cutebot_stop']);
+    if (moveTypes.has(rt) && moveTypes.has(st)) return 0.4;
+
+    // ── CUTEBOT LEDs : même côté + même couleur = même résultat ──
+    const ledCutebotTypes = new Set(['cutebot_led_color', 'cutebot_led_rgb']);
+    if (ledCutebotTypes.has(rt) && ledCutebotTypes.has(st)) {
+        const sameSide = ref.fields.LIGHT === stu.fields.LIGHT;
+        const sameColor = ref._normalizedColor && stu._normalizedColor && ref._normalizedColor === stu._normalizedColor;
+        if (sameSide && sameColor) return 1.0;   // même LED, même couleur → identique
+        if (sameSide) return 0.8;                  // même LED, couleur différente
+        if (sameColor) return 0.7;                 // même couleur, LED différente
+        return 0.5;                                // au moins même famille
+    }
+
+    // cutebot_led_off ↔ cutebot_led avec couleur #000000 : même résultat
+    if ((rt === 'cutebot_led_off' && ledCutebotTypes.has(st)) ||
+        (st === 'cutebot_led_off' && ledCutebotTypes.has(rt))) {
+        const ledAction = rt === 'cutebot_led_off' ? stu : ref;
+        if (ledAction._normalizedColor === '#000000') return 1.0;
+        return 0.5; // éteindre vs allumer = partiel
+    }
+
+    // ── LED INDIVIDUELLES : même coordonnées = même résultat ──
+    const ledOnTypes = new Set(['led_plot', 'led_toggle']);
+    if (ledOnTypes.has(rt) && ledOnTypes.has(st)) {
+        const sameX = ref.values.X === stu.values.X;
+        const sameY = ref.values.Y === stu.values.Y;
+        return (sameX && sameY) ? 1.0 : 0.5;
+    }
+    if ((rt === 'led_unplot' && st === 'led_toggle') || (rt === 'led_toggle' && st === 'led_unplot')) {
+        const sameX = ref.values.X === stu.values.X;
+        const sameY = ref.values.Y === stu.values.Y;
+        return (sameX && sameY) ? 0.8 : 0.4;
+    }
+
+    // ── MUSIQUE : même fréquence + même durée = même son ──
+    const toneTypes = new Set(['music_play_tone', 'music_play_tone_freq', 'music_ring_tone']);
+    if (toneTypes.has(rt) && toneTypes.has(st)) {
+        const sameFreq = ref._frequency && stu._frequency && ref._frequency === stu._frequency;
+        // Comparer les durées si les deux en ont
+        const refDur = ref.values.DURATION;
+        const stuDur = stu.values.DURATION;
+        const sameDur = (!refDur && !stuDur) || (refDur && stuDur && (refDur === stuDur || isNumericClose(refDur, stuDur, 0.1)));
+        if (sameFreq && sameDur) return 1.0;  // même note, même durée → identique
+        if (sameFreq) return 0.9;              // même note, durée différente
+        return 0.8;                             // même famille (jouer un son)
+    }
+
+    // music_set_tempo ↔ music_change_tempo_by
+    const tempoTypes = new Set(['music_set_tempo', 'music_change_tempo_by']);
+    if (tempoTypes.has(rt) && tempoTypes.has(st)) return 0.6;
+
+    // ── AFFICHAGE : blocs d'affichage différents sans pattern commun ──
+    const displayTypes = new Set(['basic_show_icon', 'basic_show_leds', 'basic_show_arrow']);
+    if (displayTypes.has(rt) && displayTypes.has(st)) return 0.5;
+
+    // basic_show_string ↔ basic_show_number (les deux affichent du texte défilant)
+    const textTypes = new Set(['basic_show_string', 'basic_show_number']);
+    if (textTypes.has(rt) && textTypes.has(st)) {
+        // Même valeur affichée (ex: show_number(42) vs show_string("42"))
+        const refVal = ref.values.NUM || ref.values.TEXT || '';
+        const stuVal = stu.values.NUM || stu.values.TEXT || '';
+        if (String(refVal) === String(stuVal)) return 1.0;
+        return 0.5;
+    }
+
+    // ── CAPTEURS LIGNE : mêmes capteurs testés ──
+    const lineTypes = new Set(['cutebot_tracking_state', 'cutebot_track_side']);
+    if (lineTypes.has(rt) && lineTypes.has(st)) return 0.7;
+
+    // ── RADIO : même type d'envoi ──
+    const radioSendTypes = new Set(['radio_send_number', 'radio_send_string', 'radio_send_value']);
+    if (radioSendTypes.has(rt) && radioSendTypes.has(st)) return 0.6;
+
+    // ── VARIABLES ──
+    const varTypes = new Set(['variables_set', 'variables_change', 'math_change']);
+    if (varTypes.has(rt) && varTypes.has(st)) return 0.5;
+
+    // ── CONTRÔLE ──
+    const condTypes = new Set(['controls_if', 'cutebot_if']);
+    if (condTypes.has(rt) && condTypes.has(st)) return 0.8;
+
+    // ── Même catégorie générale = crédit partiel faible ──
+    if (getActionCategory(rt) === getActionCategory(st)) {
+        return 0.3;
+    }
+
+    return 0;
+}
+
+// Helpers pour identifier la finalité des mouvements
+function isForwardAction(type, action) {
+    if (type === 'cutebot_forward') return true;
+    if (type === 'cutebot_move_time' && action && action.fields.DIRECTION === 'forward') return true;
+    if (type === 'cutebot_motors' && action) {
+        const l = parseFloat(action.values.LEFT_SPEED);
+        const r = parseFloat(action.values.RIGHT_SPEED);
+        return !isNaN(l) && !isNaN(r) && l > 0 && r > 0 && Math.abs(l - r) <= 15;
+    }
+    return false;
+}
+function isBackwardAction(type, action) {
+    if (type === 'cutebot_backward') return true;
+    if (type === 'cutebot_move_time' && action && action.fields.DIRECTION === 'backward') return true;
+    if (type === 'cutebot_motors' && action) {
+        const l = parseFloat(action.values.LEFT_SPEED);
+        const r = parseFloat(action.values.RIGHT_SPEED);
+        return !isNaN(l) && !isNaN(r) && l < 0 && r < 0 && Math.abs(l - r) <= 15;
+    }
+    return false;
+}
+function isTurnLeftAction(type, action) {
+    if (type === 'cutebot_turn_left') return true;
+    if (type === 'cutebot_move_time' && action && action.fields.DIRECTION === 'left') return true;
+    if (type === 'cutebot_motors' && action) {
+        const l = parseFloat(action.values.LEFT_SPEED);
+        const r = parseFloat(action.values.RIGHT_SPEED);
+        return !isNaN(l) && !isNaN(r) && r > l;
+    }
+    return false;
+}
+function isTurnRightAction(type, action) {
+    if (type === 'cutebot_turn_right') return true;
+    if (type === 'cutebot_move_time' && action && action.fields.DIRECTION === 'right') return true;
+    if (type === 'cutebot_motors' && action) {
+        const l = parseFloat(action.values.LEFT_SPEED);
+        const r = parseFloat(action.values.RIGHT_SPEED);
+        return !isNaN(l) && !isNaN(r) && l > r;
+    }
+    return false;
+}
+function isStopAction(type, action) {
+    if (type === 'cutebot_stop') return true;
+    if (type === 'cutebot_motors' && action) {
+        const l = parseFloat(action.values.LEFT_SPEED);
+        const r = parseFloat(action.values.RIGHT_SPEED);
+        return l === 0 && r === 0;
+    }
+    return false;
+}
+
+function getActionCategory(type) {
+    if (type.startsWith('basic_show') || type.startsWith('led_') || type === 'basic_clear_screen') return 'display';
+    if (type.startsWith('music_')) return 'sound';
+    if (type.startsWith('cutebot_led')) return 'cutebot_led';
+    if (type.startsWith('cutebot_servo') || type === 'cutebot_if') return 'servo';
+    if (type.startsWith('cutebot_')) return 'motor';
+    if (type.startsWith('radio_')) return 'radio';
+    if (type === 'basic_pause') return 'timing';
+    if (type.startsWith('input_')) return 'sensor';
+    if (type.startsWith('variables_') || type === 'math_change') return 'variable';
+    if (type.startsWith('controls_')) return 'control';
+    return 'other';
+}
+
+function isNumericClose(a, b, tolerance) {
+    const na = parseFloat(a), nb = parseFloat(b);
+    if (isNaN(na) || isNaN(nb)) return false;
+    if (na === 0 && nb === 0) return true;
+    return Math.abs(na - nb) / Math.max(Math.abs(na), Math.abs(nb), 1) <= tolerance;
+}
+
+function getPartialNote(ref, stu) {
+    if (!stu) return '';
+    if (ref.type !== stu.type) return `Méthode différente (${stu.type.replace(/_/g,' ')})`;
+    const diffFields = Object.keys(ref.fields).filter(k => ref.fields[k] !== stu.fields[k]);
+    const diffValues = Object.keys(ref.values).filter(k => String(ref.values[k]) !== String(stu.values[k]));
+    const parts = [];
+    if (diffFields.length) parts.push(`champs: ${diffFields.join(', ')}`);
+    if (diffValues.length) parts.push(`valeurs: ${diffValues.join(', ')}`);
+    return parts.join(' · ') || 'Légère différence';
+}
+
+// ═══════════════════════════════════════════════════════════
+// UI: FILE HANDLING
+// ═══════════════════════════════════════════════════════════
+function setupDropZone(zoneId, inputId, onFiles) {
+    const zone = document.getElementById(zoneId);
+    const input = document.getElementById(inputId);
+
+    zone.addEventListener('click', () => input.click());
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        onFiles(e.dataTransfer.files);
+    });
+    input.addEventListener('change', () => { if (input.files.length) onFiles(input.files); });
+}
+
+async function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsText(file);
+    });
+}
+
+// Reference file
+setupDropZone('refDropZone', 'refInput', async (files) => {
+    const file = files[0];
+    const content = await readFileAsText(file);
+    const xml = extractBlocklyXml(content, file.name);
+    if (!xml) {
+        document.getElementById('refFileInfo').innerHTML =
+            '<div style="color:var(--danger);padding:10px;font-size:0.85rem;">❌ Fichier invalide ou sans données Micro:bit Simulator</div>';
+        referenceData = null;
+        updateLaunchButton();
+        return;
+    }
+    const blocks = parseBlocklyXml(xml);
+    const hatBlocks = extractHatBlocks(blocks);
+    referenceData = { xml, blocks, hatBlocks, _rawContent: content, _rawName: file.name };
+
+    document.getElementById('refFileInfo').innerHTML = `
+        <div class="file-loaded">
+            <span>✅</span>
+            <span class="fname">${file.name}</span>
+            <span class="meta">${hatBlocks.length} chapeau${hatBlocks.length > 1 ? 'x' : ''} · ${hatBlocks.reduce((s,h) => s+h.actions.length, 0)} actions</span>
+        </div>`;
+    updateLaunchButton();
+});
+
+// Student files
+setupDropZone('studentDropZone', 'studentInput', async (files) => {
+    // Add to existing files
+    for (const file of files) {
+        const content = await readFileAsText(file);
+        // Avoid duplicates
+        if (!studentFiles.find(f => f.name === file.name)) {
+            studentFiles.push({ name: file.name, content });
+        }
+    }
+    renderStudentFiles();
+    updateLaunchButton();
+});
+
+function renderStudentFiles() {
+    const list = document.getElementById('studentFilesList');
+    list.innerHTML = studentFiles.map(f => `<div class="file-item">📄 ${f.name}</div>`).join('');
+    document.getElementById('studentCount').textContent =
+        studentFiles.length > 0 ? `${studentFiles.length} fichier${studentFiles.length > 1 ? 's' : ''} chargé${studentFiles.length > 1 ? 's' : ''}` : '';
+}
+
+// Mode selection
+function selectMode(mode) {
+    correctionMode = mode;
+    document.querySelectorAll('.option-card').forEach(c => {
+        c.classList.toggle('selected', c.dataset.mode === mode);
+    });
+}
+
+function updateLaunchButton() {
+    document.getElementById('btnCorrect').disabled = !(referenceData && studentFiles.length > 0);
+}
+
+// ═══════════════════════════════════════════════════════════
+// CORRECTION LAUNCH
+// ═══════════════════════════════════════════════════════════
+function startCorrection() {
+    if (!referenceData || studentFiles.length === 0) return;
+    correctionResults = [];
+
+    for (const sf of studentFiles) {
+        const xml = extractBlocklyXml(sf.content, sf.name);
+        if (!xml) {
+            correctionResults.push({
+                name: sf.name,
+                score: 0,
+                maxScore: TOTAL_POINTS,
+                details: [],
+                extraHats: [],
+                error: 'Fichier invalide'
+            });
+            continue;
+        }
+        const blocks = parseBlocklyXml(xml);
+        const studentHats = extractHatBlocks(blocks);
+        let result = comparePrograms(referenceData.hatBlocks, studentHats, correctionMode);
+
+        // Analyse de cohérence du flux de données (mode objectif uniquement)
+        if (correctionMode === 'objective') {
+            const cards = extractBothCards(sf.content, sf.name);
+            let card2Hats = null;
+            if (cards.card2 && cards.card2 !== cards.card1) {
+                const card2Blocks = parseBlocklyXml(cards.card2);
+                card2Hats = extractHatBlocks(card2Blocks);
+            }
+
+            // 1. Cohérence interne (envoi/réception correspondent)
+            const internalIssues = checkDataFlowCoherence(studentHats, card2Hats);
+
+            // 2. Comportement bout-en-bout (ref vs élève)
+            const refCards = extractBothCards(referenceData._rawContent, referenceData._rawName || 'ref.hex');
+            let refCard2Hats = null;
+            if (refCards.card2 && refCards.card2 !== refCards.card1) {
+                const refCard2Blocks = parseBlocklyXml(refCards.card2);
+                refCard2Hats = extractHatBlocks(refCard2Blocks);
+            }
+            const behaviorIssues = checkEndToEndBehavior(
+                referenceData.hatBlocks, studentHats,
+                refCard2Hats, card2Hats
+            );
+
+            // Dédupliquer : si un même hat est ciblé par les deux vérifications,
+            // garder seulement l'issue E2E (plus précise)
+            const e2eHatKeys = new Set();
+            for (const issue of behaviorIssues) {
+                for (const k of issue.affectedHatKeys) e2eHatKeys.add(k);
+            }
+            const filteredInternal = internalIssues.filter(issue =>
+                !issue.affectedHatKeys.some(k => e2eHatKeys.has(k))
+            );
+
+            const allIssues = [...filteredInternal, ...behaviorIssues];
+            if (allIssues.length > 0) {
+                result = applyCoherencePenalties(result, allIssues);
+            }
+        }
+
+        correctionResults.push({ name: sf.name, ...result });
+    }
+
+    // Sort by score descending
+    correctionResults.sort((a, b) => b.score - a.score);
+    renderResults();
+}
+
+// ═══════════════════════════════════════════════════════════
+// UI: RESULTS
+// ═══════════════════════════════════════════════════════════
+function renderResults() {
+    const section = document.getElementById('resultsSection');
+    section.style.display = 'block';
+
+    // Stats
+    const scores = correctionResults.map(r => r.score);
+    const avg = (scores.reduce((a,b) => a+b, 0) / scores.length).toFixed(1);
+    const min = Math.min(...scores).toFixed(1);
+    const max = Math.max(...scores).toFixed(1);
+    document.getElementById('avgScore').textContent = `${avg}/${TOTAL_POINTS}`;
+    document.getElementById('minScore').textContent = `${min}`;
+    document.getElementById('maxScore').textContent = `${max}`;
+
+    document.getElementById('modeLabel').textContent =
+        correctionMode === 'objective' ? '🎯 Mode objectif' : '🔒 Mode identique';
+
+    // List
+    const list = document.getElementById('resultsList');
+    list.innerHTML = correctionResults.map((r, i) => {
+        const pct = (r.score / TOTAL_POINTS * 100);
+        const cls = pct >= 70 ? 'high' : pct >= 40 ? 'mid' : 'low';
+        const displayName = r.name.replace(/\.(hex|xml|json)$/i, '');
+        return `
+            <div class="result-row" onclick="showDetail(${i})">
+                <span class="result-name" title="${r.name}">${displayName}</span>
+                <span class="result-score score-${cls}">${r.score}/${TOTAL_POINTS}</span>
+                <div class="result-bar-container">
+                    <div class="result-bar bar-${cls}" style="width:${pct}%"></div>
+                </div>
+                <span class="result-arrow">›</span>
+            </div>`;
+    }).join('');
+
+    section.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ═══════════════════════════════════════════════════════════
+// UI: DETAIL PANEL
+// ═══════════════════════════════════════════════════════════
+function showDetail(index) {
+    const r = correctionResults[index];
+    const panel = document.getElementById('detailPanel');
+    const pct = (r.score / TOTAL_POINTS * 100);
+    const cls = pct >= 70 ? 'high' : pct >= 40 ? 'mid' : 'low';
+    const modeBadge = correctionMode === 'objective'
+        ? '<span class="mode-badge objective">OBJECTIF</span>'
+        : '<span class="mode-badge identical">IDENTIQUE</span>';
+
+    let html = `
+        <div class="detail-header">
+            <h2>📄 ${r.name.replace(/\.(hex|xml|json)$/i, '')}</h2>
+            ${modeBadge}
+            <div class="score-badge ${cls}">${r.score}/${TOTAL_POINTS}</div>
+            <button class="detail-close" onclick="closeDetail()">✕</button>
+        </div>`;
+
+    if (r.error) {
+        html += `<p style="color:var(--danger);padding:16px 0;">❌ ${r.error}</p>`;
+    }
+
+    // Hat sections
+    for (const hat of r.details) {
+        const hatPct = hat.maxPoints > 0 ? (hat.earned / hat.maxPoints * 100) : 0;
+        const hatCls = !hat.found ? 'low' : hatPct >= 70 ? 'high' : hatPct >= 40 ? 'mid' : 'low';
+        const hatIcon = !hat.found ? '❌' : hatPct >= 90 ? '✅' : hatPct >= 40 ? '⚠️' : '❌';
+        const earnedDisplay = Math.round(hat.earned * 10) / 10;
+        const maxDisplay = Math.round(hat.maxPoints * 10) / 10;
+
+        html += `
+        <div class="hat-section">
+            <div class="hat-header open" onclick="this.classList.toggle('open')">
+                <span class="hat-icon">${hatIcon}</span>
+                <span class="hat-name">${hat.name}</span>
+                <span class="hat-score score-${hatCls}">${earnedDisplay} / ${maxDisplay}</span>
+                <span class="hat-toggle">›</span>
+            </div>
+            <div class="hat-body">`;
+
+        if (!hat.found) {
+            html += `<div class="action-row"><span class="action-icon">❌</span><span class="action-desc" style="color:var(--danger)">Chapeau non trouvé dans le programme de l'élève</span></div>`;
+        } else {
+            for (const a of hat.actionResults) {
+                const icon = a.status === 'correct' ? '✅' : a.status === 'partial' ? '⚠️' : '❌';
+                const earnedA = Math.round(a.earned * 100) / 100;
+                const maxA = Math.round(a.max * 100) / 100;
+                const noteHtml = a.note ? `<span class="expected">${a.note}</span>` : '';
+                html += `
+                    <div class="action-row">
+                        <span class="action-icon">${icon}</span>
+                        <span class="action-desc">${a.desc}${noteHtml}</span>
+                        <span class="action-pts">${earnedA}/${maxA}</span>
+                    </div>`;
+            }
+            // Afficher le problème de cohérence s'il y en a un
+            if (hat.coherenceIssue) {
+                html += `<div class="action-row" style="background:rgba(239,68,68,0.1);border-left:3px solid var(--danger);margin-top:4px;padding:6px 10px;">
+                    <span class="action-icon">🔗</span>
+                    <span class="action-desc" style="color:var(--danger);font-size:0.8rem;">${hat.coherenceIssue}<br><em>Le programme ne fonctionne pas → pénalité appliquée</em></span>
+                </div>`;
+            }
+        }
+
+        html += `</div></div>`;
+    }
+
+    // Extra hats (not in reference)
+    if (r.extraHats && r.extraHats.length > 0) {
+        html += `
+        <div class="hat-section others-section">
+            <div class="hat-header" onclick="this.classList.toggle('open')">
+                <span class="hat-icon">ℹ️</span>
+                <span class="hat-name">Autres (hors référence — non évalués)</span>
+                <span class="hat-toggle">›</span>
+            </div>
+            <div class="hat-body">`;
+        for (const eh of r.extraHats) {
+            html += `<div class="action-row">
+                <span class="action-icon">➕</span>
+                <span class="action-desc">${eh.name} <span class="expected">${eh.actions.length} action${eh.actions.length>1?'s':''}</span></span>
+            </div>`;
+        }
+        html += `</div></div>`;
+    }
+
+    panel.innerHTML = html;
+    document.getElementById('detailOverlay').classList.add('show');
+}
+
+function closeDetail() {
+    document.getElementById('detailOverlay').classList.remove('show');
+}
+
+// Keyboard shortcut
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeDetail();
+});
+</script>
+
+</body>
+</html>

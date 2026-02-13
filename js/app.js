@@ -84,6 +84,9 @@ document.addEventListener('DOMContentLoaded', function() {
         runProgram();
     }, 500);
     
+    // Pré-charger les firmwares en arrière-plan pour diagnostiquer les problèmes de connexion
+    preloadFirmwares();
+    
     // Resize handler
     let resizeTimeout;
     window.addEventListener('resize', () => {
@@ -104,6 +107,63 @@ document.addEventListener('DOMContentLoaded', function() {
     // Accel modal
     setupAccelModal();
 });
+
+/**
+ * Pré-charge les firmwares MicroPython en arrière-plan
+ * Affiche un avertissement si le chargement échoue
+ */
+async function preloadFirmwares() {
+    try {
+        const hexGen = new HexGenerator();
+        const loaded = await hexGen.loadFirmwares();
+        
+        if (loaded) {
+            console.log('✅ Firmwares pré-chargés avec succès');
+            // Vérifier si les bibliothèques ont été chargées
+            if (!hexGen.cutebotLib) {
+                console.warn('⚠️ Bibliothèque Cutebot.py non chargée');
+            }
+            if (!hexGen.mfrc522Lib) {
+                console.warn('⚠️ Bibliothèque MFRC522.py non chargée');
+            }
+            // Stocker pour réutilisation
+            window._preloadedHexGen = hexGen;
+        } else {
+            console.warn('⚠️ Échec du pré-chargement des firmwares');
+            showFirmwareWarning();
+        }
+    } catch (error) {
+        console.error('Erreur pré-chargement firmwares:', error);
+        showFirmwareWarning();
+    }
+}
+
+/**
+ * Affiche un avertissement discret si les firmwares n'ont pas pu être chargés
+ */
+function showFirmwareWarning() {
+    // Créer un badge d'avertissement sur le bouton télécharger
+    const downloadBtn = document.getElementById('btnDownloadHex');
+    if (downloadBtn) {
+        downloadBtn.title = '⚠️ Connexion lente - Le téléchargement pourrait échouer';
+        downloadBtn.style.position = 'relative';
+        
+        // Ajouter un point d'avertissement
+        const warningDot = document.createElement('span');
+        warningDot.style.cssText = `
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            width: 12px;
+            height: 12px;
+            background: #f59e0b;
+            border-radius: 50%;
+            border: 2px solid var(--bg-card, #1e293b);
+        `;
+        warningDot.title = 'Connexion lente détectée';
+        downloadBtn.appendChild(warningDot);
+    }
+}
 
 function initMicrobitSimulator() {
     if (typeof MicrobitSimulator !== 'undefined') {
@@ -731,15 +791,13 @@ function applyToolboxColors() {
                 // Effet hover sur le PARENT
                 if (parent) {
                     parent.addEventListener('mouseenter', function() {
-                        this.style.setProperty('filter', 'brightness(1.1)', 'important');
+                        this.style.setProperty('opacity', '0.85', 'important');
                         this.style.setProperty('transform', 'translateX(2px)', 'important');
-                        this.style.setProperty('box-shadow', '0 2px 8px rgba(0, 0, 0, 0.15)', 'important');
                     });
                     
                     parent.addEventListener('mouseleave', function() {
-                        this.style.setProperty('filter', 'brightness(1)', 'important');
+                        this.style.setProperty('opacity', '1', 'important');
                         this.style.setProperty('transform', 'translateX(0)', 'important');
-                        this.style.setProperty('box-shadow', 'none', 'important');
                     });
                 }
                 
@@ -815,7 +873,6 @@ function initEventListeners() {
     document.getElementById('btnStop').onclick = stopProgram;
     document.getElementById('btnReset').onclick = resetSimulator;
     document.getElementById('btnDownloadHex').onclick = downloadHex;
-    document.getElementById('btnSave').onclick = saveProject;
     document.getElementById('btnLoad').onclick = loadProject;
     document.getElementById('btnSettings').onclick = openSettingsDialog;
     
@@ -1272,11 +1329,11 @@ async function runProgram(keepPosition = false) {
     }
     
     // Également exécuter la seconde carte radio si elle est activée
+    // On lance la carte 2 en parallèle (sans bloquer la carte 1)
+    // mais on attend que son SVG soit chargé avant d'exécuter le code
+    let radioPromise = null;
     if (typeof window.radioSimulator !== 'undefined' && window.radioSimulator && window.radioSimulator.isEnabled()) {
-        // Petite pause pour laisser le temps à la carte principale de s'initialiser
-        setTimeout(() => {
-            window.radioSimulator.runSecondProgram();
-        }, 200);
+        radioPromise = window.radioSimulator.runSecondProgram();
     }
     
     try {
@@ -1467,56 +1524,71 @@ function openInMakeCode() {
 
 function downloadHex() {
     updateGeneratedCode();
-    // Utilise la fonction globale de hex-generator.js qui télécharge le .mkcd et affiche le dialog
-    downloadHexFile(currentCode);
-}
-
-// ============== SAVE/LOAD ==============
-function saveProject() {
-    // Sauvegarder le workspace actuel dans la variable correspondante
+    
+    // Préparer les métadonnées du projet (Blockly XML) pour les embarquer dans le HEX
     const currentXml = Blockly.Xml.workspaceToDom(workspace);
     const currentXmlText = Blockly.Xml.domToText(currentXml);
-    
     if (currentCard === 1) {
         card1Xml = currentXmlText;
     } else {
         card2Xml = currentXmlText;
     }
     
-    // Créer un XML englobant avec les deux programmes
-    const card1Content = card1Xml || currentXmlText;
-    const card2Content = card2Xml || card1Xml || currentXmlText;
+    const projectMeta = {
+        version: 2,
+        card1: card1Xml || currentXmlText,
+        card2: card2Xml || card1Xml || currentXmlText
+    };
     
-    // Format XML avec les deux cartes
-    const projectXml = `<project version="2">
-<card1>${card1Content}</card1>
-<card2>${card2Content}</card2>
-</project>`;
-    
-    const blob = new Blob([projectXml], { type: 'application/xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    
-    // Nom de fichier selon la carte actuelle
-    const fileName = currentCard === 1 ? 'microbit-project.xml' : 'microbit-carte2-project.xml';
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    showToast('💾 Projet sauvegardé', 'success');
+    // Utilise la fonction globale de hex-generator.js qui télécharge le HEX avec métadonnées embarquées
+    downloadHexFile(currentCode, projectMeta);
 }
 
+// ============== SAVE/LOAD ==============
 function loadProject() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.xml,.json';
+    input.accept = '.xml,.json,.hex';
     input.onchange = (e) => {
         const file = e.target.files[0];
         const reader = new FileReader();
         reader.onload = (ev) => {
             try {
                 const content = ev.target.result;
+                
+                // ===== Détection fichier HEX avec métadonnées embarquées =====
+                if (file.name.endsWith('.hex') || content.trimStart().startsWith(':')) {
+                    const PBLOCKS_MARKER = '### PBLOCKS_PROJECT ###';
+                    const markerIndex = content.indexOf(PBLOCKS_MARKER);
+                    
+                    if (markerIndex === -1) {
+                        showToast('❌ Ce fichier HEX ne contient pas de données P-Blocks', 'error');
+                        return;
+                    }
+                    
+                    const jsonStr = content.substring(markerIndex + PBLOCKS_MARKER.length).trim();
+                    const projectData = JSON.parse(jsonStr);
+                    
+                    if (projectData.version === 2 && projectData.card1) {
+                        card1Xml = projectData.card1;
+                        card2Xml = projectData.card2 || null;
+                        card2Initialized = !!card2Xml;
+                        
+                        const xmlToLoad = currentCard === 1 ? card1Xml : card2Xml || card1Xml;
+                        const xml = Blockly.utils.xml.textToDom(xmlToLoad);
+                        workspace.clear();
+                        Blockly.Xml.domToWorkspace(xml, workspace);
+                        
+                        const cardsMsg = card2Xml ? ' (2 cartes)' : '';
+                        showToast('📂 Projet chargé depuis HEX' + cardsMsg, 'success');
+                        updateCard2ButtonVisibility();
+                        openRequiredPanelsAndRun();
+                        return;
+                    } else {
+                        showToast('❌ Métadonnées HEX invalides', 'error');
+                        return;
+                    }
+                }
                 
                 // Essayer de parser comme nouveau format XML (version 2 avec deux cartes)
                 if (content.includes('<project version="2">')) {
@@ -2093,6 +2165,7 @@ function initDynamicControls() {
     hideAllControls();
     
     // Écouter les changements du workspace
+    let _controlsDebounce = null;
     if (workspace) {
         workspace.addChangeListener((event) => {
             // Mettre à jour sur création/suppression/déplacement de blocs ou changement de champ
@@ -2100,8 +2173,9 @@ function initDynamicControls() {
                 event.type === Blockly.Events.BLOCK_DELETE ||
                 event.type === Blockly.Events.BLOCK_MOVE ||
                 event.type === Blockly.Events.BLOCK_CHANGE) {
-                // Petit délai pour laisser Blockly finir ses mises à jour
-                setTimeout(updateVisibleControls, 50);
+                // Debounce : annuler le précédent timeout pour regrouper les rafales
+                clearTimeout(_controlsDebounce);
+                _controlsDebounce = setTimeout(updateVisibleControls, 150);
             }
         });
         

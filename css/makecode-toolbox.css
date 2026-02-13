@@ -23,7 +23,7 @@
     margin: 4px 8px !important;
     border-radius: 8px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
     position: relative;
     overflow: visible;
 }

@@ -824,6 +824,18 @@ class HexGenerator {
         console.log('Code Python généré:');
         console.log(pythonCode);
         
+        // Vérifier que les bibliothèques nécessaires sont disponibles
+        const needsCutebot = pythonCode.includes('from Cutebot import');
+        const needsMfrc522 = pythonCode.includes('from MFRC522 import');
+        
+        if (needsCutebot && !this.cutebotLib) {
+            throw new Error('La bibliothèque Cutebot n\'a pas pu être chargée. Vérifiez votre connexion internet et rechargez la page.');
+        }
+        
+        if (needsMfrc522 && !this.mfrc522Lib) {
+            throw new Error('La bibliothèque MFRC522 n\'a pas pu être chargée. Vérifiez votre connexion internet et rechargez la page.');
+        }
+        
         // Créer l'instance MicropythonFsHex avec les deux firmwares
         const micropythonFs = new window.MicropythonFsHex([
             { hex: this.v1Hex, boardId: window.microbitBoardId.V1 },
@@ -831,12 +843,12 @@ class HexGenerator {
         ]);
 
         // Ajouter la bibliothèque Cutebot si disponible et nécessaire
-        if (this.cutebotLib && pythonCode.includes('from Cutebot import')) {
+        if (this.cutebotLib && needsCutebot) {
             micropythonFs.write('Cutebot.py', this.cutebotLib);
         }
         
         // Ajouter la bibliothèque MFRC522 si disponible et nécessaire
-        if (this.mfrc522Lib && pythonCode.includes('from MFRC522 import')) {
+        if (this.mfrc522Lib && needsMfrc522) {
             micropythonFs.write('MFRC522.py', this.mfrc522Lib);
         }
 
@@ -1150,48 +1162,77 @@ class HexGenerator {
  * Télécharge le fichier .mkcd et ouvre MakeCode
  * Comportement original qui fonctionne
  */
-async function downloadHexFile(simCode) {
-    const hexGen = new HexGenerator();
-    
-    // Stocker le code pour l'option mkcd
-    window._currentSimCode = simCode;
-    window._currentTsCode = hexGen.generateMakeCodeTS(simCode);
-    
-    // Stocker pour utilisation dans les callbacks
-    window._pendingHexGen = hexGen;
-    window._pendingSimCode = simCode;
-    
-    // Détecter si le code utilise des boutons IR
-    const usesIRButtons = /__irButtonPressed\(/.test(simCode);
-    
-    if (usesIRButtons) {
-        // Les boutons IR ne fonctionnent pas en HEX MicroPython direct
-        // Forcer le fallback mkcd qui fonctionne parfaitement
-        console.log('Programme avec IR détecté - utilisation du fallback mkcd');
-        showLoading(false);
-        downloadMkcdAndShowInstructions(hexGen, simCode, true); // true = IR détecté
+let _downloadInProgress = false; // Protection anti-double-clic
+
+async function downloadHexFile(simCode, projectMeta) {
+    // Protection contre les clics multiples (important sur les ordis lents)
+    if (_downloadInProgress) {
+        console.log('Téléchargement déjà en cours, ignoré');
         return;
     }
+    _downloadInProgress = true;
     
-    // Vérifier si WebUSB est disponible (Chrome/Edge)
-    const webUSBAvailable = window.WebUSBFlasher && window.WebUSBFlasher.checkSupport();
+    // Désactiver le bouton pendant le processus
+    const downloadBtn = document.getElementById('btnDownloadHex');
+    if (downloadBtn) {
+        downloadBtn.disabled = true;
+        downloadBtn.style.opacity = '0.6';
+    }
     
-    if (webUSBAvailable) {
-        // Vérifier si un micro:bit appairé est connecté (sans interaction utilisateur)
-        const hasMicrobit = await window.WebUSBFlasher.hasPairedMicrobit();
+    try {
+        // Utiliser le HexGenerator pré-chargé si disponible, sinon en créer un nouveau
+        const hexGen = window._preloadedHexGen || new HexGenerator();
         
-        if (hasMicrobit) {
-            // micro:bit détecté → tenter le téléversement direct
-            console.log('🔌 micro:bit appairé détecté - téléversement direct');
-            await attemptWebUSBFlash(hexGen, simCode);
-        } else {
-            // Pas de micro:bit appairé → téléchargement classique
-            console.log('📥 Pas de micro:bit appairé - téléchargement du fichier');
-            await performClassicDownload(hexGen, simCode);
+        // Stocker le code pour l'option mkcd
+        window._currentSimCode = simCode;
+        window._currentTsCode = hexGen.generateMakeCodeTS(simCode);
+        
+        // Stocker pour utilisation dans les callbacks
+        window._pendingHexGen = hexGen;
+        window._pendingSimCode = simCode;
+        window._pendingProjectMeta = projectMeta || null;
+        
+        // Détecter si le code utilise des boutons IR
+        const usesIRButtons = /__irButtonPressed\(/.test(simCode);
+        
+        if (usesIRButtons) {
+            // Les boutons IR ne fonctionnent pas en HEX MicroPython direct
+            // Forcer le fallback mkcd qui fonctionne parfaitement
+            console.log('Programme avec IR détecté - utilisation du fallback mkcd');
+            showLoading(false);
+            downloadMkcdAndShowInstructions(hexGen, simCode, true); // true = IR détecté
+            return;
         }
-    } else {
-        // Firefox ou autre : téléchargement classique directement
-        await performClassicDownload(hexGen, simCode);
+        
+        // Vérifier si WebUSB est disponible (Chrome/Edge)
+        const webUSBAvailable = window.WebUSBFlasher && window.WebUSBFlasher.checkSupport();
+    
+        if (webUSBAvailable) {
+            // Vérifier si un micro:bit appairé est connecté (sans interaction utilisateur)
+            const hasMicrobit = await window.WebUSBFlasher.hasPairedMicrobit();
+            
+            if (hasMicrobit) {
+                // micro:bit détecté → tenter le téléversement direct
+                console.log('🔌 micro:bit appairé détecté - téléversement direct');
+                await attemptWebUSBFlash(hexGen, simCode);
+            } else {
+                // Pas de micro:bit appairé → téléchargement classique
+                console.log('📥 Pas de micro:bit appairé - téléchargement du fichier');
+                await performClassicDownload(hexGen, simCode, projectMeta);
+            }
+        } else {
+            // Firefox ou autre : téléchargement classique directement
+            await performClassicDownload(hexGen, simCode, projectMeta);
+        }
+    
+    } finally {
+        // Réactiver le bouton et le flag
+        _downloadInProgress = false;
+        const downloadBtn = document.getElementById('btnDownloadHex');
+        if (downloadBtn) {
+            downloadBtn.disabled = false;
+            downloadBtn.style.opacity = '';
+        }
     }
 }
 
@@ -1251,8 +1292,8 @@ async function attemptWebUSBFlash(hexGen, simCode) {
         console.error('Erreur WebUSB:', error);
         closeMakeCodeDialog();
         
-        // Fallback : téléchargement classique
-        await performClassicDownload(hexGen, simCode);
+        // Fallback : téléchargement classique (avec métadonnées si disponibles)
+        await performClassicDownload(hexGen, simCode, window._pendingProjectMeta);
     }
 }
 
@@ -1260,6 +1301,12 @@ async function attemptWebUSBFlash(hexGen, simCode) {
  * Télécharge un contenu HEX déjà généré
  */
 function downloadHexContent(hexContent) {
+    // Vérifier l'intégrité avant téléchargement
+    if (!verifyHexIntegrity(hexContent)) {
+        showToast('⚠️ Fichier HEX invalide', 'error');
+        return false;
+    }
+    
     const blob = new Blob([hexContent], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1268,6 +1315,7 @@ function downloadHexContent(hexContent) {
     a.click();
     URL.revokeObjectURL(url);
     showToast('✅ Fichier HEX téléchargé !', 'success');
+    return true;
 }
 
 /**
@@ -1292,26 +1340,45 @@ async function retryWebUSBFlash() {
 async function startClassicDownload() {
     const hexGen = window._pendingHexGen;
     const simCode = window._pendingSimCode;
+    const projectMeta = window._pendingProjectMeta;
     
     closeMakeCodeDialog();
     
     if (hexGen && simCode) {
-        await performClassicDownload(hexGen, simCode);
+        await performClassicDownload(hexGen, simCode, projectMeta);
     }
 }
 
 /**
  * Effectue le téléchargement classique du fichier HEX
  */
-async function performClassicDownload(hexGen, simCode) {
+async function performClassicDownload(hexGen, simCode, projectMeta) {
     try {
         showLoading(true);
         
-        // Forcer le rechargement des firmwares (ne pas utiliser le cache)
-        hexGen.firmwaresLoaded = false;
+        // Utiliser les firmwares pré-chargés si disponibles
+        if (window._preloadedHexGen && window._preloadedHexGen.firmwaresLoaded) {
+            hexGen = window._preloadedHexGen;
+        } else {
+            // Forcer le rechargement des firmwares
+            hexGen.firmwaresLoaded = false;
+        }
         
         // Essayer d'abord la génération directe HEX
-        const hexContent = await hexGen.generateHex(simCode);
+        let hexContent = await hexGen.generateHex(simCode);
+        
+        // Vérifier l'intégrité du fichier HEX
+        if (!verifyHexIntegrity(hexContent)) {
+            throw new Error('Le fichier HEX généré est incomplet ou corrompu');
+        }
+        
+        // Embarquer les métadonnées du projet (Blockly XML) dans le HEX
+        // Ces données sont ajoutées après le record EOF et ignorées par le micro:bit
+        if (projectMeta) {
+            const metaJson = JSON.stringify(projectMeta);
+            hexContent = hexContent.trimEnd() + '\n### PBLOCKS_PROJECT ###\n' + metaJson + '\n';
+            console.log('📎 Métadonnées du projet embarquées dans le HEX (' + metaJson.length + ' octets)');
+        }
         
         // Télécharger le fichier HEX
         const blob = new Blob([hexContent], { type: 'application/octet-stream' });
@@ -1330,9 +1397,64 @@ async function performClassicDownload(hexGen, simCode) {
         console.error('Erreur génération HEX:', error);
         showLoading(false);
         
+        // Afficher un message d'erreur spécifique si c'est un problème de bibliothèque
+        const errorMsg = error.message || '';
+        if (errorMsg.includes('Cutebot') || errorMsg.includes('MFRC522')) {
+            showToast('⚠️ ' + errorMsg, 'error');
+        } else if (errorMsg.includes('firmware') || errorMsg.includes('incomplet') || errorMsg.includes('corrompu')) {
+            showToast('⚠️ Erreur de génération - utilisation du mode MakeCode', 'warning');
+        }
+        
         // Fallback : télécharger directement le .mkcd et afficher les instructions
         downloadMkcdAndShowInstructions(hexGen, simCode, false);
     }
+}
+
+/**
+ * Vérifie l'intégrité d'un fichier Intel HEX
+ * @param {string} hexContent - Contenu du fichier HEX
+ * @returns {boolean} true si le fichier est valide
+ */
+function verifyHexIntegrity(hexContent) {
+    if (!hexContent || typeof hexContent !== 'string') {
+        console.error('HEX invalide: contenu vide ou non-string');
+        return false;
+    }
+    
+    // Un fichier HEX valide doit :
+    // 1. Commencer par ':'
+    // 2. Contenir au moins quelques lignes
+    // 3. Se terminer par un record de fin (:00000001FF)
+    
+    const lines = hexContent.trim().split('\n');
+    
+    if (lines.length < 10) {
+        console.error('HEX invalide: trop peu de lignes (' + lines.length + ')');
+        return false;
+    }
+    
+    // Vérifier que la première ligne commence par ':'
+    if (!lines[0].trim().startsWith(':')) {
+        console.error('HEX invalide: ne commence pas par ":"');
+        return false;
+    }
+    
+    // Vérifier la dernière ligne (record de fin)
+    // Note: Universal HEX peut avoir plusieurs records de fin, on cherche au moins un
+    const lastLines = lines.slice(-5).join('\n');
+    if (!lastLines.includes(':00000001FF')) {
+        console.error('HEX invalide: pas de record de fin (:00000001FF)');
+        return false;
+    }
+    
+    // Vérifier la taille minimum (un HEX micro:bit fait au moins 100KB)
+    if (hexContent.length < 100000) {
+        console.error('HEX invalide: taille trop petite (' + hexContent.length + ' octets)');
+        return false;
+    }
+    
+    console.log('✅ Fichier HEX valide (' + lines.length + ' lignes, ' + Math.round(hexContent.length/1024) + ' KB)');
+    return true;
 }
 
 /**
@@ -1397,9 +1519,10 @@ async function cancelWebUSBAndDownload() {
     
     const hexGen = window._pendingHexGen;
     const simCode = window._pendingSimCode;
+    const projectMeta = window._pendingProjectMeta;
     
     if (hexGen && simCode) {
-        await performClassicDownload(hexGen, simCode);
+        await performClassicDownload(hexGen, simCode, projectMeta);
     }
 }
 
@@ -1969,9 +2092,31 @@ function showHexSuccessDialog() {
             <div class="modal-body" style="text-align: center; padding: 24px;">
                 <div style="font-size: 72px; margin-bottom: 16px;">🎉</div>
                 
-                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; color: white;">
+                <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; padding: 20px; margin-bottom: 16px; color: white;">
                     <p style="margin: 0; font-size: 18px; font-weight: 600;">
                         📁 Copiez le fichier téléchargé<br>dans votre micro:bit !
+                    </p>
+                </div>
+                
+                <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 10px; padding: 12px; margin-bottom: 16px; text-align: left;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                        <span style="font-size: 16px;">⏳</span>
+                        <strong style="color: #92400e; font-size: 13px;">Important</strong>
+                    </div>
+                    <p style="margin: 0; font-size: 12px; color: #78350f; line-height: 1.4;">
+                        Attendez que la copie soit terminée (la LED du micro:bit clignote). 
+                        Si erreur, débranchez et rebranchez le micro:bit.
+                    </p>
+                </div>
+                
+                <div style="background: var(--bg-input); border-radius: 10px; padding: 12px; margin-bottom: 16px; text-align: left;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                        <span style="font-size: 16px;">💾</span>
+                        <strong style="color: var(--text-primary); font-size: 13px;">Bon à savoir</strong>
+                    </div>
+                    <p style="margin: 0; font-size: 12px; color: var(--text-secondary); line-height: 1.4;">
+                        Ce fichier HEX contient aussi votre programme en blocs. 
+                        Vous pouvez le recharger plus tard avec le bouton <strong>Charger</strong> !
                     </p>
                 </div>
                 

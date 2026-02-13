@@ -34,7 +34,6 @@
     height: auto;
     filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
     transition: transform 0.1s ease;
-    transform-style: preserve-3d;
 }
 
 @keyframes shake {
@@ -52,9 +51,8 @@
 
 /* Griser tous les éléments lors du flip (y compris l'arrière-plan) */
 #MicrobitSVG.flipped > g {
-    opacity: 0.3;
-    filter: grayscale(0.7);
-    transition: opacity 0.3s ease, filter 0.3s ease;
+    opacity: 0.25;
+    transition: opacity 0.3s ease;
 }
 
 /* Board shape */
@@ -240,7 +238,7 @@
     font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
 }
 
 .shake-btn:hover {
@@ -322,7 +320,7 @@
     cursor: pointer;
     padding: 4px;
     border-radius: 4px;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
 }
 
 .simulator-section-header .toggle-btn:hover {

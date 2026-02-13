@@ -65,7 +65,7 @@
     background: rgba(59, 130, 246, 0.2);
     color: #94a3b8;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, opacity 0.2s ease, color 0.2s ease;
     flex-shrink: 0;
 }
 
@@ -140,7 +140,7 @@
     height: 3px;
     background: rgba(59, 130, 246, 0.3);
     border-radius: 2px;
-    transition: all 0.2s;
+    transition: background-color 0.2s, opacity 0.2s;
 }
 
 .sim-panel-resize:hover .resize-handle {
@@ -525,7 +525,7 @@
     cursor: pointer;
     background: linear-gradient(135deg, #1e293b, #334155);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    transition: all 0.15s ease;
+    transition: background-color 0.15s ease, opacity 0.15s ease;
 }
 
 .mb-btn-group .mb-btn:hover {
@@ -548,14 +548,12 @@
 /* Les contrôles sont cachés par défaut et apparaissent quand un bloc les utilise */
 
 .control-item {
-    transition: opacity 0.3s ease, transform 0.3s ease, max-width 0.3s ease, max-height 0.3s ease, margin 0.3s ease, padding 0.3s ease;
+    transition: opacity 0.2s ease;
     opacity: 1;
-    transform: scale(1);
 }
 
 .control-item.hidden {
     opacity: 0;
-    transform: scale(0.8);
     max-width: 0 !important;
     max-height: 0 !important;
     margin: 0 !important;
@@ -571,17 +569,15 @@
 
 /* Animation d'apparition */
 .control-item.appearing {
-    animation: controlAppear 0.3s ease forwards;
+    animation: controlAppear 0.2s ease forwards;
 }
 
 @keyframes controlAppear {
     0% {
         opacity: 0;
-        transform: scale(0.5);
     }
     100% {
         opacity: 1;
-        transform: scale(1);
     }
 }
 
@@ -800,18 +796,17 @@
 .badge-halo.active {
     opacity: 1;
     animation: halo-pulse 1.5s ease-in-out infinite;
+    box-shadow: 0 0 12px rgba(124, 58, 237, 0.4), 0 0 25px rgba(124, 58, 237, 0.2);
 }
 
 @keyframes halo-pulse {
     0%, 100% {
         transform: translate(-50%, -50%) scale(1);
         opacity: 1;
-        box-shadow: 0 0 12px rgba(124, 58, 237, 0.4), 0 0 25px rgba(124, 58, 237, 0.2);
     }
     50% {
         transform: translate(-50%, -50%) scale(1.1);
-        opacity: 0.8;
-        box-shadow: 0 0 18px rgba(124, 58, 237, 0.5), 0 0 35px rgba(124, 58, 237, 0.3);
+        opacity: 0.7;
     }
 }
 
@@ -963,7 +958,7 @@
     background: rgba(227, 0, 140, 0.1);
     color: #e2e8f0;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, opacity 0.2s ease, color 0.2s ease;
 }
 
 .radio-ctrl-btn:hover {
@@ -1014,7 +1009,7 @@
     cursor: pointer;
     color: #94a3b8;
     font-size: 12px;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, opacity 0.2s ease, color 0.2s ease;
 }
 
 .radio-settings-header:hover {
@@ -1128,7 +1123,7 @@
     height: 8px;
     border-radius: 50%;
     background: #475569;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, opacity 0.3s ease;
 }
 
 .radio-dot.active {
@@ -1235,7 +1230,7 @@
     background: rgba(255, 255, 255, 0.1);
     color: #e2e8f0;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, opacity 0.2s ease, color 0.2s ease;
 }
 
 .radio-editor-btn:hover {

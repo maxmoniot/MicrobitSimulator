@@ -78,7 +78,11 @@ class CutebotSimulator {
         this.trackCtx = this.trackCanvas.getContext('2d', { willReadFrequently: true });
         this.trackCanvas.width = 2000;
         this.trackCanvas.height = 2000;
+        this.trackCanvasDirty = true; // Flag pour ne redessiner le trackCanvas que quand nécessaire
         this.clearTrack();
+        
+        // Cache du panneau pour éviter querySelector dans la boucle d'animation
+        this._panelElement = null;
         
         // État
         this.irButton = null;
@@ -179,6 +183,7 @@ class CutebotSimulator {
     clearTrack() {
         // Vider toutes les lignes stockées
         this.allDrawnLines = [];
+        this.trackCanvasDirty = true;
         // Les lignes seront automatiquement absentes du prochain render()
         
         // Effacer aussi les points de collision
@@ -439,6 +444,7 @@ class CutebotSimulator {
             // Initialiser le buffer de points
             this.drawBuffer = [{ x, y }];
             this.isCurrentlyDrawing = true;
+            this.trackCanvasDirty = true;
         } else if (this.drawBuffer && this.isCurrentlyDrawing) {
             // Accumuler les points
             const lastPoint = this.drawBuffer[this.drawBuffer.length - 1];
@@ -447,6 +453,7 @@ class CutebotSimulator {
             // N'ajouter que si le point est suffisamment éloigné (évite les doublons)
             if (distance > 2) {
                 this.drawBuffer.push({ x, y });
+                this.trackCanvasDirty = true;
             }
         }
         
@@ -469,6 +476,7 @@ class CutebotSimulator {
         
         this.isCurrentlyDrawing = false;
         this.drawBuffer = null;
+        this.trackCanvasDirty = true;
         // La ligne sera automatiquement dessinée dans le prochain render()
     }
     
@@ -1208,6 +1216,13 @@ class CutebotSimulator {
         let lastTimestamp = 0;
         
         const loop = (timestamp) => {
+            // Utiliser le panel caché (mis à jour une seule fois)
+            if (!this._panelElement) {
+                this._panelElement = document.querySelector('[data-id="cutebot"]');
+            }
+            const panel = this._panelElement;
+            const isVisible = panel && !panel.classList.contains('collapsed') && panel.style.display !== 'none';
+            
             // Calculer dt en ms
             const dt = lastTimestamp ? (timestamp - lastTimestamp) : 16.67;
             lastTimestamp = timestamp;
@@ -1215,28 +1230,35 @@ class CutebotSimulator {
             // Limiter dt à 50ms max (20fps min) pour éviter les gros sauts
             const cappedDt = Math.min(dt, 50);
             
-            // Mise à jour de la physique (mouvement du robot)
-            this.update(cappedDt);
+            // Mise à jour de la physique seulement si visible ou si le robot bouge
+            const isMoving = this.robot.leftSpeed !== 0 || this.robot.rightSpeed !== 0;
             
-            // Mise à jour de la pince (toujours actif, même à l'arrêt)
-            if (this.robot.gripperEnabled) {
-                this.updateGripperAnimation(cappedDt);
-            }
-            
-            // Mise à jour de l'obstacle attrapé
-            this.updateGrabbedObstacle();
-            
-            // Mise à jour du temps de grâce après relâchement
-            if (this.releaseGraceTime > 0) {
-                this.releaseGraceTime -= cappedDt;
-                if (this.releaseGraceTime <= 0) {
-                    this.recentlyReleasedObstacle = null;
-                    this.releaseGraceTime = 0;
+            if (isVisible || isMoving) {
+                // Mise à jour de la physique (mouvement du robot)
+                this.update(cappedDt);
+                
+                // Mise à jour de la pince (toujours actif, même à l'arrêt)
+                if (this.robot.gripperEnabled) {
+                    this.updateGripperAnimation(cappedDt);
+                }
+                
+                // Mise à jour de l'obstacle attrapé
+                this.updateGrabbedObstacle();
+                
+                // Mise à jour du temps de grâce après relâchement
+                if (this.releaseGraceTime > 0) {
+                    this.releaseGraceTime -= cappedDt;
+                    if (this.releaseGraceTime <= 0) {
+                        this.recentlyReleasedObstacle = null;
+                        this.releaseGraceTime = 0;
+                    }
                 }
             }
             
-            // Rendu
-            this.render();
+            // Rendu seulement si visible
+            if (isVisible) {
+                this.render();
+            }
             
             // Continuer la boucle
             this.animationId = requestAnimationFrame(loop);
@@ -1257,10 +1279,13 @@ class CutebotSimulator {
         this.ctx.translate(this.panOffset.x, this.panOffset.y);
         this.ctx.scale(realZoom, realZoom);
         
-        // Dessiner un fond blanc VRAIMENT INFINI dans l'espace monde
-        // Utiliser des valeurs extrêmement grandes pour couvrir n'importe quel niveau de zoom
+        // Dessiner un fond blanc dans la zone visible uniquement
+        const viewLeft = -this.panOffset.x / realZoom;
+        const viewTop = -this.panOffset.y / realZoom;
+        const viewRight = (this.canvas.width - this.panOffset.x) / realZoom;
+        const viewBottom = (this.canvas.height - this.panOffset.y) / realZoom;
         this.ctx.fillStyle = '#f8fafc';
-        this.ctx.fillRect(-1000000, -1000000, 2000000, 2000000);
+        this.ctx.fillRect(viewLeft - 50, viewTop - 50, viewRight - viewLeft + 100, viewBottom - viewTop + 100);
         
         // Dessiner la grille procédurale infinie
         this.drawProceduralGrid();
@@ -1304,8 +1329,11 @@ class CutebotSimulator {
             });
         }
         
-        // Redessiner aussi dans le trackCanvas pour la détection des capteurs
-        this.updateTrackCanvasForSensors();
+        // Redessiner le trackCanvas UNIQUEMENT si les lignes ont changé
+        if (this.trackCanvasDirty) {
+            this.updateTrackCanvasForSensors();
+            this.trackCanvasDirty = false;
+        }
     }
     
     updateTrackCanvasForSensors() {
@@ -1637,28 +1665,20 @@ class CutebotSimulator {
         if (r.leftLed.r || r.leftLed.g || r.leftLed.b) {
             const c = `rgb(${r.leftLed.r},${r.leftLed.g},${r.leftLed.b})`;
             ctx.fillStyle = c;
-            ctx.shadowColor = c;
-            ctx.shadowBlur = 12;
         } else {
             ctx.fillStyle = '#333';
-            ctx.shadowBlur = 0;
         }
         ctx.fill();
-        ctx.shadowBlur = 0;
         
         ctx.beginPath();
         ctx.arc(w/4, ledY, 6, 0, Math.PI * 2);
         if (r.rightLed.r || r.rightLed.g || r.rightLed.b) {
             const c = `rgb(${r.rightLed.r},${r.rightLed.g},${r.rightLed.b})`;
             ctx.fillStyle = c;
-            ctx.shadowColor = c;
-            ctx.shadowBlur = 12;
         } else {
             ctx.fillStyle = '#333';
-            ctx.shadowBlur = 0;
         }
         ctx.fill();
-        ctx.shadowBlur = 0;
         
         // Capteurs de ligne
         const sensorY = -h/2 - 5;

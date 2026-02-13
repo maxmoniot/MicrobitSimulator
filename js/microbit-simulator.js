@@ -110,6 +110,36 @@ class MicrobitSimulator {
             micLed: this.container.querySelector('#micro')
         };
         
+        // Injecter le filtre SVG de lueur dans les <defs> du SVG (une seule fois)
+        if (this.elements.svg && !this.elements.svg.querySelector('#ledGlow')) {
+            let defs = this.elements.svg.querySelector('defs');
+            if (!defs) {
+                defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                this.elements.svg.insertBefore(defs, this.elements.svg.firstChild);
+            }
+            defs.insertAdjacentHTML('beforeend',
+                '<filter id="ledGlow" x="-80%" y="-80%" width="260%" height="260%">' +
+                '<feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>' +
+                '<feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="redBlur"/>' +
+                '<feMerge><feMergeNode in="redBlur"/><feMergeNode in="SourceGraphic"/></feMerge>' +
+                '</filter>'
+            );
+        }
+        
+        // Cache des LEDs : paths (.st18) + groupe parent (<g>) pour le filtre
+        this.ledCache = {};
+        this.ledGroupCache = {};
+        for (let y = 0; y < 5; y++) {
+            for (let x = 0; x < 5; x++) {
+                const ledId = `led_x5F_${x}-${y}`;
+                const led = this.container.querySelector(`#${ledId}`);
+                if (led) {
+                    this.ledCache[`${x}-${y}`] = led.querySelectorAll('.st18');
+                    this.ledGroupCache[`${x}-${y}`] = led;
+                }
+            }
+        }
+        
         if (this.elements.buttonA) this.elements.buttonA.style.cursor = 'pointer';
         if (this.elements.buttonB) this.elements.buttonB.style.cursor = 'pointer';
         if (this.elements.logoTouch) this.elements.logoTouch.style.cursor = 'pointer';
@@ -272,34 +302,52 @@ class MicrobitSimulator {
      * Met à jour l'affichage d'une LED
      */
     updateLedDisplay(x, y) {
-        const ledId = `led_x5F_${x}-${y}`;
-        const led = this.container.querySelector(`#${ledId}`);
-        if (!led) return;
+        // Utiliser le cache si disponible, sinon requête DOM directe (fallback)
+        let ledPaths = this.ledCache && this.ledCache[`${x}-${y}`];
+        let ledGroup = this.ledGroupCache && this.ledGroupCache[`${x}-${y}`];
+        if (!ledPaths) {
+            const ledId = `led_x5F_${x}-${y}`;
+            const led = this.container.querySelector(`#${ledId}`);
+            if (!led) return;
+            ledPaths = led.querySelectorAll('.st18');
+            ledGroup = led;
+            // Stocker dans le cache pour les prochains appels
+            if (!this.ledCache) this.ledCache = {};
+            if (!this.ledGroupCache) this.ledGroupCache = {};
+            this.ledCache[`${x}-${y}`] = ledPaths;
+            this.ledGroupCache[`${x}-${y}`] = led;
+        }
+        if (ledPaths.length === 0) return;
         
         const brightness = this.leds[y][x];
-        const ledPaths = led.querySelectorAll('.st18');
         
         if (brightness > 0 && this.ledEnabled) {
             const normalizedBrightness = brightness / 255;
             const r = Math.round(51 + 204 * normalizedBrightness);
             const color = `rgb(${r}, 0, 0)`;
-            
-            // Effet de halo proportionnel à la luminosité
-            const glowIntensity = Math.round(3 + 7 * normalizedBrightness); // 3-10px
-            const glowOpacity = 0.5 + 0.5 * normalizedBrightness; // 0.5-1.0
+            // Lueur : stroke semi-transparent derrière le fill (paint-order)
+            const glowOpacity = (0.3 + 0.5 * normalizedBrightness).toFixed(2);
             const glowColor = `rgba(255, 0, 0, ${glowOpacity})`;
             
-            ledPaths.forEach(path => {
-                path.style.fill = color;
-                path.style.opacity = normalizedBrightness;
-                path.style.filter = `drop-shadow(0 0 ${glowIntensity}px ${glowColor})`;
-            });
+            for (let i = 0; i < ledPaths.length; i++) {
+                const s = ledPaths[i].style;
+                s.fill = color;
+                s.opacity = normalizedBrightness;
+                s.stroke = glowColor;
+                s.strokeWidth = '5';
+                s.paintOrder = 'stroke';
+            }
+            // Appliquer le filtre de halo SVG sur le groupe
+            if (ledGroup) ledGroup.setAttribute('filter', 'url(#ledGlow)');
         } else {
-            ledPaths.forEach(path => {
-                path.style.fill = '#999';
-                path.style.opacity = '1';
-                path.style.filter = 'none';
-            });
+            for (let i = 0; i < ledPaths.length; i++) {
+                const s = ledPaths[i].style;
+                s.fill = '#999';
+                s.opacity = '1';
+                s.stroke = 'none';
+            }
+            // Retirer le filtre de halo
+            if (ledGroup) ledGroup.removeAttribute('filter');
         }
     }
     

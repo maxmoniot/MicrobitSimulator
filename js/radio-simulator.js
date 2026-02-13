@@ -714,14 +714,37 @@
 
     // ========== GESTION DES MESSAGES RADIO ==========
 
+    // File d'attente de messages radio (pour connexion lente)
+    let radioMessageQueue = [];
+    let secondCardReady = false;
+
+    function queueRadioMessage(message) {
+        radioMessageQueue.push(message);
+    }
+
+    function flushRadioQueue() {
+        if (!secondRuntime || radioMessageQueue.length === 0) return;
+        const queued = radioMessageQueue.splice(0);
+        for (const msg of queued) {
+            triggerRadioCallbacks(secondRuntime, msg);
+        }
+    }
+
     function handleRadioMessage(event) {
-        if (!radioEnabled || !secondMicrobit) return;
+        if (!radioEnabled) return;
         
         const message = event.detail;
-        if (secondMicrobit.radioGroup !== message.group) return;
         
         // Animation d'émission depuis la carte 1
         animateRadioTransmit(1);
+
+        // Si la carte 2 n'est pas encore prête, mettre en file d'attente
+        if (!secondCardReady || !secondMicrobit) {
+            queueRadioMessage(message);
+            return;
+        }
+        
+        if (secondMicrobit.radioGroup !== message.group) return;
         
         triggerRadioCallbacks(secondRuntime, message);
     }
@@ -769,8 +792,27 @@
         
         if (!secondMicrobit) {
             initSecondMicrobit();
-            await new Promise(r => setTimeout(r, 300));
         }
+        
+        secondCardReady = false;
+        radioMessageQueue = [];
+        
+        // Afficher indicateur de chargement
+        showSecondCardLoading(true);
+        
+        // CRITIQUE : attendre que le SVG soit chargé et les éléments DOM prêts
+        // Sur connexion lente, fetch('Microbit.svg') peut prendre plusieurs secondes
+        if (secondMicrobit) {
+            try {
+                await secondMicrobit.ready();
+            } catch (e) {
+                console.error('Erreur initialisation carte 2:', e);
+                showSecondCardLoading(false);
+                return;
+            }
+        }
+        
+        showSecondCardLoading(false);
         
         if (!secondMicrobit || !secondRuntime) {
             return;
@@ -841,14 +883,49 @@
             
             eval(asyncCode);
             
+            // À ce point, les callbacks (onRadioReceived, etc.) sont enregistrés
+            // synchroniquement par le code eval'd. On peut rejouer les messages en attente.
+            secondCardReady = true;
+            flushRadioQueue();
+            
         } catch (error) {
             console.error('Erreur exécution carte 2:', error);
+        }
+    }
+
+    function showSecondCardLoading(show) {
+        const panel = document.getElementById('radioMicrobitPanel');
+        if (!panel) return;
+        let loader = panel.querySelector('.radio-loading-overlay');
+        if (show) {
+            if (!loader) {
+                loader = document.createElement('div');
+                loader.className = 'radio-loading-overlay';
+                loader.innerHTML = `
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;
+                        position:absolute;inset:0;background:rgba(15,12,50,0.85);z-index:50;
+                        display:flex;justify-content:center;border-radius:8px;">
+                        <div style="width:24px;height:24px;border:3px solid rgba(139,92,246,0.3);
+                            border-top-color:#a78bfa;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+                        <span style="color:#c4b5fd;font-size:12px;">Chargement carte 2…</span>
+                    </div>
+                `;
+                const content = panel.querySelector('.sim-panel-content');
+                if (content) {
+                    content.style.position = 'relative';
+                    content.appendChild(loader);
+                }
+            }
+        } else {
+            if (loader) loader.remove();
         }
     }
 
     async function stopSecondProgram() {
         secondStopRequested = true;
         window.__secondStopRequested = true;
+        secondCardReady = false;
+        radioMessageQueue = [];
         
         if (secondMicrobit) {
             secondMicrobit.stopAllAnimations();

@@ -27,6 +27,9 @@ class BarrierSimulator {
         // Animation frame ID
         this.animationFrameId = null;
         
+        // Cache du panneau pour l'animation
+        this._panelElement = null;
+        
         // Éléments SVG
         this.svgElement = null;
         this.leftBarrier = null;
@@ -148,8 +151,27 @@ class BarrierSimulator {
      */
     startAnimation() {
         const animate = () => {
-            this.updateAngles();
-            this.updateVisuals();
+            // Utiliser le panel caché pour éviter querySelector à chaque frame
+            if (!this._panelElement) {
+                this._panelElement = document.querySelector('[data-id="barrier"]');
+            }
+            const panel = this._panelElement;
+            const isVisible = panel && !panel.classList.contains('collapsed') && panel.style.display !== 'none';
+            
+            // Toujours mettre à jour les angles (pour que la physique soit correcte)
+            // mais ne pas animer visuellement si non visible
+            const needsUpdate = this.leftAngle !== this.leftTargetAngle || 
+                               this.rightAngle !== this.rightTargetAngle;
+            
+            if (needsUpdate) {
+                this.updateAngles();
+            }
+            
+            // Mettre à jour les visuels seulement si visible
+            if (isVisible && needsUpdate) {
+                this.updateVisuals();
+            }
+            
             this.animationFrameId = requestAnimationFrame(animate);
         };
         animate();
