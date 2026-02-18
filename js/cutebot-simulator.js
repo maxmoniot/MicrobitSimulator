@@ -1833,7 +1833,25 @@ class CutebotSimulator {
         };
         const [l, r] = dirs[dir] || [0, 0];
         this.setMotors(l, r);
-        await new Promise(resolve => setTimeout(resolve, time * 1000));
+        
+        // Pause annulable avec chunks de 50ms
+        const gen = window._execGeneration || 0;
+        const StopExec = window.__StopExecution || Error;
+        let remaining = time * 1000;
+        try {
+            while (remaining > 0) {
+                const chunk = Math.min(remaining, 50);
+                await new Promise(resolve => setTimeout(resolve, chunk));
+                if ((window._execGeneration || 0) !== gen) {
+                    throw new StopExec('__StopExecution');
+                }
+                remaining -= chunk;
+            }
+        } catch (e) {
+            this.stopMotors();
+            throw e;
+        }
+        
         this.stopMotors();
     }
     
@@ -1904,8 +1922,18 @@ class CutebotSimulator {
     
     triggerIR(button) {
         this.irButton = button;
-        this.irLastCode = button; // Garder la dernière valeur (ne reset pas à null)
-        if (this.irCallback) try { this.irCallback(button); } catch(e) { console.error(e); }
+        this.irLastCode = button;
+        if (this.irCallback) {
+            const gen = window._execGeneration || 0;
+            const cb = this.irCallback;
+            Promise.resolve().then(async () => {
+                if ((window._execGeneration || 0) !== gen) return;
+                try { await cb(button); } catch(e) {
+                    if (e && e.name === '__StopExecution') return;
+                    console.error(e);
+                }
+            });
+        }
         setTimeout(() => { this.irButton = null; }, 200);
     }
     

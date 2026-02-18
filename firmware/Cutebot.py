@@ -40,6 +40,9 @@ class CUTEBOT(object):
         """Set headlight color (light: 0x04=left, 0x08=right)"""
         if R > 255 or G > 255 or B > 255:
             raise ValueError('RGB is error')
+        # Hardware correction: green and blue LEDs are brighter than red
+        G = int(G * 0.2)
+        B = int(B * 0.7)
         i2c.write(CUTEBOT_ADDR, bytearray([light, R, G, B]))
 
     def get_distance(self, unit: int = 0):

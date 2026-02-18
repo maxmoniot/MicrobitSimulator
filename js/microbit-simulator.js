@@ -876,7 +876,7 @@ class MicrobitSimulator {
         
         // Défiler
         for (let offset = 0; offset < buffer.length; offset++) {
-            if (this.stopAnimationFlag) break;
+            if (this.stopAnimationFlag) return;
             
             for (let x = 0; x < 5; x++) {
                 const bufferX = offset + x;
@@ -889,7 +889,14 @@ class MicrobitSimulator {
                 }
             }
             
-            await this.pause(interval);
+            try {
+                await this.pause(interval);
+            } catch (e) {
+                if (e && e.name === '__StopExecution') { this.clearScreen(); throw e; }
+                throw e;
+            }
+            
+            if (this.stopAnimationFlag) { this.clearScreen(); return; }
         }
         
         this.clearScreen();
@@ -1118,7 +1125,14 @@ class MicrobitSimulator {
         this.currentOscillator = oscillator;
         oscillator.start();
         
-        await this.pause(duration);
+        try {
+            await this.pause(duration);
+        } catch (e) {
+            // Arrêter le son immédiatement en cas de StopExecution
+            try { oscillator.stop(); } catch(_) {}
+            this.currentOscillator = null;
+            throw e;
+        }
         
         oscillator.stop();
         this.currentOscillator = null;
@@ -1200,16 +1214,31 @@ class MicrobitSimulator {
     
     triggerEvent(event) {
         if (this.eventHandlers[event]) {
+            const gen = window._execGeneration || 0;
             this.eventHandlers[event].forEach(cb => {
-                try { cb(); } catch (e) { /* Silent */ }
+                // Wrapper qui catch __StopExecution silencieusement
+                Promise.resolve().then(async () => {
+                    if ((window._execGeneration || 0) !== gen) return;
+                    try { await cb(); } catch (e) {
+                        if (e && e.name === '__StopExecution') return;
+                        console.error(e);
+                    }
+                });
             });
         }
     }
     
     triggerGesture(gesture) {
         if (this.eventHandlers.gesture[gesture]) {
+            const gen = window._execGeneration || 0;
             this.eventHandlers.gesture[gesture].forEach(cb => {
-                try { cb(); } catch (e) { /* Silent */ }
+                Promise.resolve().then(async () => {
+                    if ((window._execGeneration || 0) !== gen) return;
+                    try { await cb(); } catch (e) {
+                        if (e && e.name === '__StopExecution') return;
+                        console.error(e);
+                    }
+                });
             });
         }
         
@@ -1326,8 +1355,18 @@ class MicrobitSimulator {
     
     // ========== UTILITAIRES ==========
     
-    pause(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+    async pause(ms) {
+        const gen = window._execGeneration || 0;
+        const StopExec = window.__StopExecution || Error;
+        let remaining = ms;
+        while (remaining > 0) {
+            const chunk = Math.min(remaining, 50);
+            await new Promise(r => setTimeout(r, chunk));
+            if ((window._execGeneration || 0) !== gen) {
+                throw new StopExec('__StopExecution');
+            }
+            remaining -= chunk;
+        }
     }
     
     stopAllAnimations() {
@@ -1335,10 +1374,34 @@ class MicrobitSimulator {
         this.stopSound();
     }
     
+    // Appelé au début de chaque nouvelle exécution
+    startNewExecution() {
+        this.stopAllAnimations();
+        this.clearScreen();
+        // Remettre le flag à false SEULEMENT ici (début d'exécution),
+        // pas dans reset() qui peut être appelé pendant qu'on arrête
+        this.stopAnimationFlag = false;
+        this.buttonA = false;
+        this.buttonB = false;
+        this.startTime = Date.now();
+        
+        // Reset event handlers
+        this.eventHandlers = {
+            buttonA: [],
+            buttonB: [],
+            buttonAB: [],
+            gesture: {},
+            logoTouch: [],
+            pinTouch: {}
+        };
+        this.radioCallbacks = [];
+    }
+    
     reset() {
         this.stopAllAnimations();
         this.clearScreen();
-        this.stopAnimationFlag = false;
+        // NE PAS remettre stopAnimationFlag à false ici !
+        // Les callbacks async en arrière-plan doivent voir le flag = true
         this.buttonA = false;
         this.buttonB = false;
         this.startTime = Date.now();

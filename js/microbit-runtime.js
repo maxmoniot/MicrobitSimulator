@@ -201,7 +201,6 @@ async function __mbPlaySoundEffect(sound) {
     const notes = effects[sound] || [440];
     for (const freq of notes) {
         await microbitSim.playTone(freq, 100);
-        await microbitSim.pause(20);
     }
 }
 

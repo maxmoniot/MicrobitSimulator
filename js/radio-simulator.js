@@ -759,13 +759,20 @@
         animateRadioTransmit(2);
         
         if (window.microbitSim.radioCallbacks) {
+            const gen = window._execGeneration || 0;
             window.microbitSim.radioCallbacks.forEach(cb => {
                 if (cb.type === message.type) {
-                    try {
-                        if (message.type === 'number') cb.callback(message.value);
-                        else if (message.type === 'string') cb.callback(message.value);
-                        else if (message.type === 'value') cb.callback(message.name, message.value);
-                    } catch (e) { console.error('Erreur callback radio:', e); }
+                    Promise.resolve().then(async () => {
+                        if ((window._execGeneration || 0) !== gen) return;
+                        try {
+                            if (message.type === 'number') await cb.callback(message.value);
+                            else if (message.type === 'string') await cb.callback(message.value);
+                            else if (message.type === 'value') await cb.callback(message.name, message.value);
+                        } catch (e) {
+                            if (e && e.name === '__StopExecution') return;
+                            console.error('Erreur callback radio:', e);
+                        }
+                    });
                 }
             });
         }
@@ -777,12 +784,19 @@
         const callbacks = runtime.radioCallbacks[message.type];
         if (!callbacks) return;
         
+        const gen = window._execGeneration || 0;
         callbacks.forEach(cb => {
-            try {
-                if (message.type === 'number') cb(message.value);
-                else if (message.type === 'string') cb(message.value);
-                else if (message.type === 'value') cb(message.name, message.value);
-            } catch (e) { console.error('Erreur callback radio:', e); }
+            Promise.resolve().then(async () => {
+                if ((window._execGeneration || 0) !== gen) return;
+                try {
+                    if (message.type === 'number') await cb(message.value);
+                    else if (message.type === 'string') await cb(message.value);
+                    else if (message.type === 'value') await cb(message.name, message.value);
+                } catch (e) {
+                    if (e && e.name === '__StopExecution') return;
+                    console.error('Erreur callback radio:', e);
+                }
+            });
         });
     }
 
@@ -823,7 +837,11 @@
             await new Promise(r => setTimeout(r, 100));
         }
         
-        secondMicrobit.reset();
+        if (secondMicrobit.startNewExecution) {
+            secondMicrobit.startNewExecution();
+        } else {
+            secondMicrobit.reset();
+        }
         secondRuntime.reset();
         secondStopRequested = false;
         secondProgramRunning = true;
@@ -860,19 +878,22 @@
         try {
             const asyncCode = `
                 (async function() {
-                    ${code}
-                    
-                    for (const cb of __secondRuntime.onStartCallbacks) {
-                        if (__secondStopRequested) return;
-                        await cb();
-                    }
-                    
-                    while (!__secondStopRequested && __secondRuntime.foreverCallbacks.length > 0) {
-                        for (const cb of __secondRuntime.foreverCallbacks) {
-                            if (__secondStopRequested) return;
+                    try {
+                        ${code}
+                        
+                        for (const cb of __secondRuntime.onStartCallbacks) {
                             await cb();
                         }
-                        await new Promise(r => setTimeout(r, 20));
+                        
+                        while (__secondRuntime.foreverCallbacks.length > 0) {
+                            for (const cb of __secondRuntime.foreverCallbacks) {
+                                await cb();
+                            }
+                            await __pause(20);
+                        }
+                    } catch(e) {
+                        if (e && e.name === '__StopExecution') return;
+                        throw e;
                     }
                 })();
             `;
@@ -929,11 +950,15 @@
         
         if (secondMicrobit) {
             secondMicrobit.stopAllAnimations();
+            secondMicrobit.clearScreen();
+        }
+        
+        if (secondRuntime) {
+            secondRuntime.reset();
         }
         
         secondProgramRunning = false;
         updateRunningState(false);
-        
     }
 
     function resetSecondMicrobit() {

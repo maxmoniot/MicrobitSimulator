@@ -11,6 +11,18 @@ let programRunning = false;
 let stopRequested = false;
 let autoRefreshTimer = null;
 
+// ============== EXECUTION GENERATION (annulation fiable) ==============
+// Chaque run/stop incrémente ce compteur. Toutes les pauses vérifient
+// si la génération a changé — si oui, elles lèvent __StopExecution pour
+// tuer proprement toute la chaîne async.
+let _execGeneration = 0;
+window._execGeneration = 0;
+
+class __StopExecution extends Error {
+    constructor() { super('__StopExecution'); this.name = '__StopExecution'; }
+}
+window.__StopExecution = __StopExecution;
+
 // Micro:bit simulator (simulator cutebot est déclaré dans cutebot-simulator.js)
 let microbitSim = null;
 window.microbitSim = null; // Exposé globalement pour radio-simulator
@@ -34,7 +46,19 @@ const runtime = {
 // ============== FONCTIONS RUNTIME CUTEBOT ==============
 function __onStart(fn) { runtime.onStartCallbacks.push(fn); }
 function __forever(fn) { runtime.foreverCallbacks.push(fn); }
-async function __pause(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Pause annulable : découpe en chunks de 50ms pour réagir vite à l'arrêt
+async function __pause(ms) {
+    const gen = _execGeneration;
+    let remaining = ms;
+    while (remaining > 0) {
+        const chunk = Math.min(remaining, 50);
+        await new Promise(r => setTimeout(r, chunk));
+        if (_execGeneration !== gen) throw new __StopExecution();
+        remaining -= chunk;
+    }
+}
+
 function __motors(l, r) { if (simulator) simulator.setMotors(l, r); }
 function __forward() { if (simulator) simulator.forward(); }
 function __backward() { if (simulator) simulator.backward(); }
@@ -491,10 +515,9 @@ function initBlockly() {
                 autoRefreshTimer = setTimeout(() => {
                     if (programRunning) {
                         stopProgram(true); // Mode silencieux pour l'auto-refresh
-                        setTimeout(() => runProgram(true), 100); // keepPosition=true pour garder la position du Cutebot
-                    } else {
-                        runProgram(true); // keepPosition=true pour garder la position du Cutebot
                     }
+                    // Petit délai pour laisser les microtasks se résoudre
+                    setTimeout(() => runProgram(true), 50); // keepPosition=true
                 }, 1000);
             }
             
@@ -1312,6 +1335,10 @@ async function runProgram(keepPosition = false) {
     
     programRunning = true;
     stopRequested = false;
+    _execGeneration++;
+    window._execGeneration = _execGeneration;
+    const myGen = _execGeneration;
+    
     runtime.reset();
     
     document.getElementById('btnRun').disabled = true;
@@ -1319,18 +1346,15 @@ async function runProgram(keepPosition = false) {
     
     // Reset et démarrage des simulateurs
     if (microbitSim) {
-        microbitSim.reset();
-        microbitSim.clearScreen();
+        microbitSim.startNewExecution(); // Reset propre + prépare pour nouvelle exécution
     }
     
     if (simulator) {
-        simulator.reset(keepPosition); // Passer le paramètre keepPosition
+        simulator.reset(keepPosition);
         simulator.start();
     }
     
     // Également exécuter la seconde carte radio si elle est activée
-    // On lance la carte 2 en parallèle (sans bloquer la carte 1)
-    // mais on attend que son SVG soit chargé avant d'exécuter le code
     let radioPromise = null;
     if (typeof window.radioSimulator !== 'undefined' && window.radioSimulator && window.radioSimulator.isEnabled()) {
         radioPromise = window.radioSimulator.runSecondProgram();
@@ -1341,7 +1365,6 @@ async function runProgram(keepPosition = false) {
         let codeToRun;
         
         if (currentCard === 2) {
-            // On est sur carte 2 - utiliser card1Xml pour la carte principale
             if (card1Xml) {
                 codeToRun = generateCodeFromXmlString(card1Xml);
             } else {
@@ -1349,10 +1372,8 @@ async function runProgram(keepPosition = false) {
                 codeToRun = currentCode;
             }
         } else {
-            // On est sur carte 1 - utiliser le workspace actuel
             updateGeneratedCode();
             codeToRun = currentCode;
-            // Sauvegarder aussi dans card1Xml
             const xml = Blockly.Xml.workspaceToDom(workspace);
             card1Xml = Blockly.Xml.domToText(xml);
         }
@@ -1365,33 +1386,42 @@ async function runProgram(keepPosition = false) {
             return;
         }
         
-        
         // Execute code
         const asyncCode = `(async function() { ${codeToRun} })()`;
         await eval(asyncCode);
         
+        // Vérifier si on a été annulé pendant l'eval
+        if (_execGeneration !== myGen) throw new __StopExecution();
+        
         // Run onStart callbacks
         for (const cb of runtime.onStartCallbacks) {
-            if (stopRequested) break;
+            if (_execGeneration !== myGen) throw new __StopExecution();
             await cb();
         }
         
         // Run forever loops
-        while (!stopRequested && runtime.foreverCallbacks.length > 0) {
+        while (_execGeneration === myGen && runtime.foreverCallbacks.length > 0) {
             for (const cb of runtime.foreverCallbacks) {
-                if (stopRequested) break;
+                if (_execGeneration !== myGen) throw new __StopExecution();
                 await cb();
                 await __pause(10);
             }
         }
     } catch (e) {
-        console.error('🎯 Erreur exécution:', e);
-        showToast('❌ Erreur: ' + e.message, 'error');
+        if (e instanceof __StopExecution) {
+            // Arrêt propre — pas d'erreur à afficher
+        } else {
+            console.error('🎯 Erreur exécution:', e);
+            showToast('❌ Erreur: ' + e.message, 'error');
+        }
     }
     
-    programRunning = false;
-    document.getElementById('btnRun').disabled = false;
-    document.getElementById('btnStop').disabled = true;
+    // Seulement si c'est NOTRE exécution qui finit (pas une ancienne)
+    if (_execGeneration === myGen) {
+        programRunning = false;
+        document.getElementById('btnRun').disabled = false;
+        document.getElementById('btnStop').disabled = true;
+    }
 }
 
 // Générer du code JavaScript depuis une chaîne XML
@@ -1427,7 +1457,13 @@ function generateCodeFromXmlString(xmlString) {
 
 function stopProgram(silent = false) {
     stopRequested = true;
-    programRunning = false;
+    
+    // Incrémenter la génération pour annuler toutes les pauses en cours
+    _execGeneration++;
+    window._execGeneration = _execGeneration;
+    
+    // Vider les callbacks pour arrêter les boucles
+    runtime.reset();
     
     if (simulator) {
         simulator.stopSimulation();
@@ -1435,6 +1471,7 @@ function stopProgram(silent = false) {
     
     if (microbitSim) {
         microbitSim.stopAllAnimations();
+        microbitSim.clearScreen();
     }
     
     // Également arrêter la seconde carte radio
@@ -1442,6 +1479,8 @@ function stopProgram(silent = false) {
         window.radioSimulator.stopSecondProgram();
     }
     
+    // Forcer programRunning à false (l'ancienne exécution verra le changement de génération)
+    programRunning = false;
     document.getElementById('btnRun').disabled = false;
     document.getElementById('btnStop').disabled = true;
     
@@ -1456,19 +1495,17 @@ function resetSimulator(forceRun = false) {
         forceRun = false;
     }
     
-    // Vérifier si la simulation est en cours (btnStop est enabled = simulation en cours)
-    const wasRunning = !document.getElementById('btnStop').disabled;
+    const wasRunning = programRunning || !document.getElementById('btnStop').disabled;
     
-    // Réinitialiser le runtime sans arrêter complètement
-    runtime.reset();
+    // Arrêter proprement le programme en cours (incrémente la génération)
+    stopProgram(true);
     
     if (simulator) {
         simulator.reset();
     }
     
     if (microbitSim) {
-        microbitSim.reset();
-        microbitSim.clearScreen();
+        microbitSim.startNewExecution(); // Reset complet + prêt pour nouvelle exécution
     }
     
     if (barrierSimulator) {
@@ -1486,11 +1523,12 @@ function resetSimulator(forceRun = false) {
     
     showToast('🔄 Simulateurs réinitialisés', 'info');
     
-    // Relancer si la simulation était en cours OU si forceRun est true
+    // Relancer — programRunning est déjà false grâce à stopProgram()
     if (wasRunning || forceRun) {
+        // Petit délai pour laisser les microtasks se résoudre
         setTimeout(() => {
             runProgram();
-        }, 100);
+        }, 50);
     }
 }
 
@@ -1809,10 +1847,10 @@ function switchToCard(cardNumber) {
     updateCardUI();
     
     // Relancer les programmes (carte 1 et carte 2)
+    stopProgram(true); // Arrêter proprement l'ancien programme
     setTimeout(() => {
-        // Toujours relancer pour que les deux cartes fonctionnent
         runProgram(true); // keepPosition=true
-    }, 100);
+    }, 50);
 }
 
 function updateCardUI() {

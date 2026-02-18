@@ -601,7 +601,7 @@
             condition = '!' + condition;
         }
         
-        // IMPORTANT: Ajouter une pause pour éviter le blocage du navigateur
+        // Pause pour éviter blocage + vérification d'arrêt via __pause (qui check la génération)
         branch = branch + '  await __pause(1);\n';
         
         return 'while (' + condition + ') {\n' + branch + '}\n';
@@ -612,7 +612,7 @@
         let repeats = jsGen.valueToCode(block, 'TIMES', jsGen.ORDER_ASSIGNMENT) || '0';
         let branch = jsGen.statementToCode(block, 'DO');
         
-        // IMPORTANT: Ajouter une pause pour éviter le blocage du navigateur
+        // Pause pour éviter blocage + vérification d'arrêt via __pause (qui check la génération)
         branch = branch + '  await __pause(1);\n';
         
         const loopVar = jsGen.nameDB_.getDistinctName('count', Blockly.VARIABLE_CATEGORY_NAME);

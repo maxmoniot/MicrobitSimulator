@@ -272,21 +272,24 @@ class HexGenerator {
                 'robot.set_motors_speed($1, -$1)\nsleep(int($2 * 1000))\nrobot.set_motors_speed(0, 0)');
             
             // CUTEBOT - LEDs (left=0x04, right=0x08 selon la lib)
-            c = c.replace(/__ledColor\("([^"]+)",\s*"#([^"]+)"\);?/g, (m, side, hex) => {
+            // Blocs: "gauche"=RGB_R → 0x04, "droite"=RGB_L → 0x08, "les deux"=ALL → both
+            // Note: Blockly peut générer '#ff0000' (simples) ou "#ff0000" (doubles)
+            // Correction couleur hardware appliquée dans Cutebot.py set_car_light()
+            c = c.replace(/__ledColor\("([^"]+)",\s*['"]#([^'"]+)['"]\);?/g, (m, side, hex) => {
                 const r = parseInt(hex.substr(0, 2), 16);
                 const g = parseInt(hex.substr(2, 2), 16);
                 const b = parseInt(hex.substr(4, 2), 16);
-                if (side === 'Both') {
+                if (side === 'ALL') {
                     return `robot.set_car_light(0x04, ${r}, ${g}, ${b})\nrobot.set_car_light(0x08, ${r}, ${g}, ${b})`;
                 }
-                const light = side === 'Left' ? '0x04' : '0x08';
+                const light = side === 'RGB_R' ? '0x04' : '0x08';
                 return `robot.set_car_light(${light}, ${r}, ${g}, ${b})`;
             });
             c = c.replace(/__ledRGB\("([^"]+)",\s*([^,]+),\s*([^,]+),\s*([^)]+)\);?/g, (m, side, r, g, b) => {
-                if (side === 'Both') {
+                if (side === 'ALL') {
                     return `robot.set_car_light(0x04, ${r}, ${g}, ${b})\nrobot.set_car_light(0x08, ${r}, ${g}, ${b})`;
                 }
-                const light = side === 'Left' ? '0x04' : '0x08';
+                const light = side === 'RGB_R' ? '0x04' : '0x08';
                 return `robot.set_car_light(${light}, ${r}, ${g}, ${b})`;
             });
             c = c.replace(/__ledOff\(\);?/g, 'robot.set_car_light(0x04, 0, 0, 0)\nrobot.set_car_light(0x08, 0, 0, 0)');
@@ -454,6 +457,17 @@ class HexGenerator {
             });
         }
         
+        // Événements logo tactile (micro:bit V2)
+        const logoEvents = [];
+        const logoRegex = /__mbOnLogoEvent\("([^"]+)",\s*async function\(\) \{([\s\S]*?)\}\);/g;
+        let logoMatch;
+        while ((logoMatch = logoRegex.exec(code)) !== null) {
+            logoEvents.push({
+                event: logoMatch[1],
+                code: logoMatch[2].trim()
+            });
+        }
+        
         // Événements radio - nombre reçu
         const radioNumberEvents = [];
         const radioNumberRegex = /__mbOnRadioReceivedNumber\(async function\((\w+)\) \{([\s\S]*?)\}\);/g;
@@ -576,6 +590,11 @@ class HexGenerator {
             result += 'ir_code = 0\n\n';
         }
         
+        // Variable pour la détection du logo tactile
+        if (logoEvents.length > 0) {
+            result += '_logo_prev = False\n\n';
+        }
+        
         // Générer les fonctions utilisateur
         if (userFunctions.length > 0) {
             result += '# Fonctions utilisateur\n';
@@ -594,6 +613,7 @@ class HexGenerator {
         
         // Générer la fonction _check_events() si nécessaire
         const hasEvents = buttonEvents.length > 0 || gestureEvents.length > 0 || 
+                          logoEvents.length > 0 ||
                           radioNumberEvents.length > 0 || radioStringEvents.length > 0 || hasIRButtons;
         const hasWhileInForever = foreverCode && /\bwhile\s*\(/.test(foreverCode);
         
@@ -638,13 +658,24 @@ class HexGenerator {
             // Gestes
             for (const evt of gestureEvents) {
                 const gestureMap = {
-                    'shake': 'shaken', 'logo up': 'face up', 'logo down': 'face down',
+                    'shake': 'shake', 'logo up': 'face up', 'logo down': 'face down',
                     'screen up': 'up', 'screen down': 'down',
                     'tilt left': 'left', 'tilt right': 'right',
                     'free fall': 'freefall', '3g': '3g', '6g': '6g'
                 };
-                const gesturePython = gestureMap[evt.gesture] || 'shaken';
+                const gesturePython = gestureMap[evt.gesture] || 'shake';
                 result += `    if accelerometer.was_gesture("${gesturePython}"):\n`;
+                const evtCode = convertToPython(evt.code, '        ');
+                if (evtCode.trim()) {
+                    result += evtCode + '\n';
+                } else {
+                    result += '        pass\n';
+                }
+            }
+            
+            // Logo tactile (V2)
+            for (const evt of logoEvents) {
+                result += `    if pin_logo.is_touched():\n`;
                 const evtCode = convertToPython(evt.code, '        ');
                 if (evtCode.trim()) {
                     result += evtCode + '\n';
@@ -723,12 +754,12 @@ class HexGenerator {
         // Ajouter les vérifications de gestes
         for (const evt of gestureEvents) {
             const gestureMap = {
-                'shake': 'shaken', 'logo up': 'face up', 'logo down': 'face down',
+                'shake': 'shake', 'logo up': 'face up', 'logo down': 'face down',
                 'screen up': 'up', 'screen down': 'down',
                 'tilt left': 'left', 'tilt right': 'right',
                 'free fall': 'freefall', '3g': '3g', '6g': '6g'
             };
-            const gesturePython = gestureMap[evt.gesture] || 'shaken';
+            const gesturePython = gestureMap[evt.gesture] || 'shake';
             result += `    # Geste ${evt.gesture}\n`;
             result += `    if accelerometer.was_gesture("${gesturePython}"):\n`;
             const evtCode = convertToPython(evt.code, '        ');
@@ -737,6 +768,27 @@ class HexGenerator {
             } else {
                 result += '        pass\n';
             }
+        }
+        
+        // Ajouter les vérifications du logo tactile (V2)
+        if (logoEvents.length > 0) {
+            result += `    # Logo tactile\n`;
+            result += `    _logo_current = pin_logo.is_touched()\n`;
+            for (const evt of logoEvents) {
+                if (evt.event === 'released') {
+                    result += `    if _logo_prev and not _logo_current:\n`;
+                } else {
+                    // pressed ou long pressed → détection front montant
+                    result += `    if _logo_current and not _logo_prev:\n`;
+                }
+                const evtCode = convertToPython(evt.code, '        ');
+                if (evtCode.trim()) {
+                    result += evtCode + '\n';
+                } else {
+                    result += '        pass\n';
+                }
+            }
+            result += `    _logo_prev = _logo_current\n`;
         }
         
         // Ajouter la gestion des messages radio reçus
@@ -1032,7 +1084,7 @@ class HexGenerator {
             c = c.replace(/__stop\(\);?/g, 'cuteBot.stopcar()');
             c = c.replace(/await __moveTime\("([^"]+)",\s*([^,]+),\s*([^)]+)\);?/g, 
                 'cuteBot.moveTime(cuteBot.Direction.$1, $2, $3)');
-            c = c.replace(/__ledColor\("([^"]+)",\s*"#([^"]+)"\);?/g, 
+            c = c.replace(/__ledColor\("([^"]+)",\s*['"]#([^'"]+)['"]\);?/g, 
                 'cuteBot.colorLight(cuteBot.RGBLights.$1, 0x$2)');
             c = c.replace(/__ledRGB\("([^"]+)",\s*([^,]+),\s*([^,]+),\s*([^)]+)\);?/g, 
                 'cuteBot.singleheadlights(cuteBot.RGBLights.$1, $2, $3, $4)');
@@ -2084,13 +2136,12 @@ function showHexSuccessDialog() {
     modal.id = 'makeCodeModal';
     modal.className = 'modal show';
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 420px;">
+        <div class="modal-content" style="max-width: 520px;">
             <div class="modal-header">
                 <h2>✅ C'est prêt !</h2>
                 <button class="modal-close" onclick="closeMakeCodeDialog()">&times;</button>
             </div>
             <div class="modal-body" style="text-align: center; padding: 24px;">
-                <div style="font-size: 72px; margin-bottom: 16px;">🎉</div>
                 
                 <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; padding: 20px; margin-bottom: 16px; color: white;">
                     <p style="margin: 0; font-size: 18px; font-weight: 600;">
@@ -2098,15 +2149,8 @@ function showHexSuccessDialog() {
                     </p>
                 </div>
                 
-                <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 10px; padding: 12px; margin-bottom: 16px; text-align: left;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                        <span style="font-size: 16px;">⏳</span>
-                        <strong style="color: #92400e; font-size: 13px;">Important</strong>
-                    </div>
-                    <p style="margin: 0; font-size: 12px; color: #78350f; line-height: 1.4;">
-                        Attendez que la copie soit terminée (la LED du micro:bit clignote). 
-                        Si erreur, débranchez et rebranchez le micro:bit.
-                    </p>
+                <div style="border-radius: 10px; overflow: hidden; margin-bottom: 16px; border: 2px solid var(--border-color, #334155);">
+                    <img src="images/MicrobitCopieFichier.gif" alt="Comment copier le fichier sur le micro:bit" style="width: 100%; display: block;">
                 </div>
                 
                 <div style="background: var(--bg-input); border-radius: 10px; padding: 12px; margin-bottom: 16px; text-align: left;">
