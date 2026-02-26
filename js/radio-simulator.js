@@ -62,7 +62,7 @@
                     </svg>
                 </button>
                 <span class="sim-panel-icon">📻</span>
-                <span class="sim-panel-title">Micro:bit Radio</span>
+                <span class="sim-panel-title">Micro:bit Radio (carte distante)</span>
                 <div class="radio-panel-controls">
                     <button class="radio-ctrl-btn radio-edit-btn" onclick="window.switchToCard(window.currentCard === 2 ? 1 : 2)" title="Modifier le programme de la Carte 2">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
@@ -1032,6 +1032,44 @@
         adapted = adapted.replace(/__mbOnRadioReceivedNumber/g, '__secondOnRadioReceivedNumber');
         adapted = adapted.replace(/__mbOnRadioReceivedString/g, '__secondOnRadioReceivedString');
         adapted = adapted.replace(/__mbRadioSetGroup/g, '__secondRadioSetGroup');
+        
+        // === NEUTRALISER les simulateurs physiques (cutebot, barrière, portillon) ===
+        // Dans la réalité, seule la carte 1 est branchée aux maquettes.
+        // La carte 2 ne doit PAS contrôler les simulateurs cutebot, barrière ni portillon.
+        
+        // Cutebot : moteurs, LEDs, capteurs, servos, IR
+        adapted = adapted.replace(/\b__motors\b/g, '__noop');
+        adapted = adapted.replace(/\b__forward\b/g, '__noop');
+        adapted = adapted.replace(/\b__backward\b/g, '__noop');
+        adapted = adapted.replace(/\b__turnLeft\b/g, '__noop');
+        adapted = adapted.replace(/\b__turnRight\b/g, '__noop');
+        adapted = adapted.replace(/\b__stop\b/g, '__noop');
+        adapted = adapted.replace(/\b__moveTime\b/g, '__noopAsync');
+        adapted = adapted.replace(/\b__ledColor\b/g, '__noop');
+        adapted = adapted.replace(/\b__ledRGB\b/g, '__noop');
+        adapted = adapted.replace(/\b__ledOff\b/g, '__noop');
+        adapted = adapted.replace(/\b__trackingState\b/g, '__noopFalse');
+        adapted = adapted.replace(/\b__trackSide\b/g, '__noopFalse');
+        adapted = adapted.replace(/\b__ultrasonic\b/g, '__noopZero');
+        adapted = adapted.replace(/\b__servo\b/g, '__noop');
+        adapted = adapted.replace(/\b__onTrackEvent\b/g, '__noop');
+        adapted = adapted.replace(/\b__onIRReceive\b/g, '__noop');
+        adapted = adapted.replace(/\b__irButtonPressed\b/g, '__noopFalse');
+        
+        // Servo (contrôle barrière et portillon via pins P1/P2)
+        adapted = adapted.replace(/\b__servoSetAngle\b/g, '__noop');
+        adapted = adapted.replace(/\b__servoRun\b/g, '__noop');
+        adapted = adapted.replace(/\b__servoStop\b/g, '__noop');
+        adapted = adapted.replace(/\b__servoSetRange\b/g, '__noop');
+        adapted = adapted.replace(/\b__servoSetStopMode\b/g, '__noop');
+        adapted = adapted.replace(/\b__servoSetPulse\b/g, '__noop');
+        
+        // RFID (portillon)
+        adapted = adapted.replace(/\b__rfidInit\b/g, '__noop');
+        adapted = adapted.replace(/\b__rfidGetId\b/g, '__noopEmpty');
+        adapted = adapted.replace(/\b__rfidRead\b/g, '__noopEmpty');
+        adapted = adapted.replace(/\b__rfidWrite\b/g, '__noop');
+        adapted = adapted.replace(/\b__rfidAntennaOff\b/g, '__noop');
         
         return adapted;
     }

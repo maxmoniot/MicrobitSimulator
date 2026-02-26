@@ -32,6 +32,7 @@ let currentCard = 1; // 1 ou 2
 let card1Xml = null; // Programme de la carte 1
 let card2Xml = null; // Programme de la carte 2 (copie initiale de carte 1)
 let card2Initialized = false; // true si carte 2 a été initialisée
+let card2DuplicateFromCard1 = true; // true = la carte 2 duplique automatiquement la carte 1
 
 // Runtime
 const runtime = { 
@@ -76,6 +77,13 @@ function __servo(s, a) { if (simulator) simulator.setServo(s, a); }
 function __onTrackEvent(s, e, fn) { if (simulator) simulator.onTrackEvent(s, e, fn); }
 function __onIRReceive(fn) { if (simulator) simulator.onIRReceive(fn); }
 function __irButtonPressed(b) { return simulator ? simulator.irButtonPressed(b) : false; }
+
+// === No-op functions pour la carte 2 (neutralise les simulateurs physiques) ===
+function __noop() {}
+async function __noopAsync() {}
+function __noopFalse() { return false; }
+function __noopZero() { return 0; }
+function __noopEmpty() { return ''; }
 
 // ============== INITIALISATION ==============
 document.addEventListener('DOMContentLoaded', function() {
@@ -387,6 +395,17 @@ function initBlockly() {
             metrics.viewLeft = 0;
         }
         
+        // Agrandir la zone de contenu scrollable (canvas virtuel)
+        // Ajouter une large marge autour du contenu existant pour permettre
+        // de scroller bien au-delà des blocs actuels dans toutes les directions
+        const EXTRA_MARGIN = 5000; // 5000px de marge supplémentaire
+        if (metrics.contentHeight !== undefined) {
+            metrics.contentTop -= EXTRA_MARGIN;
+            metrics.contentLeft -= EXTRA_MARGIN;
+            metrics.contentHeight += EXTRA_MARGIN * 2;
+            metrics.contentWidth += EXTRA_MARGIN * 2;
+        }
+        
         return metrics;
     };
     
@@ -507,6 +526,14 @@ function initBlockly() {
             const oldCode = currentCode;
             updateGeneratedCode();
             
+            // Synchroniser carte 2 si duplication active et qu'on est sur carte 1
+            if (currentCard === 1 && card2DuplicateFromCard1) {
+                const xml = Blockly.Xml.workspaceToDom(workspace);
+                card2Xml = Blockly.Xml.domToText(xml);
+                card1Xml = card2Xml;
+                card2Initialized = true;
+            }
+            
             // Ne déclencher l'auto-refresh que si le code a vraiment changé
             if (currentCode !== oldCode) {
                 // Auto-refresh : relancer automatiquement le programme après modification
@@ -529,6 +556,188 @@ function initBlockly() {
             }
         }
     });
+
+    // ===== COLLAPSE/EXPAND BOUTON SUR LES BLOCS FONCTIONS =====
+    // Overlay HTML positionné dynamiquement à gauche du mot "fonction"
+    const collapseOverlayContainer = document.createElement('div');
+    collapseOverlayContainer.id = 'collapse-overlay-container';
+    collapseOverlayContainer.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5;overflow:hidden;';
+    document.getElementById('blocklyDiv').appendChild(collapseOverlayContainer);
+    
+    const collapseButtons = new Map(); // blockId -> HTMLElement
+    
+    function getBlockScreenPos(block) {
+        // Obtenir la position du bloc dans le workspace, puis convertir en pixels écran
+        const svgRoot = block.getSvgRoot();
+        if (!svgRoot) return null;
+        
+        const blocklyMainSvg = workspace.getParentSvg();
+        if (!blocklyMainSvg) return null;
+        
+        const svgRect = blocklyMainSvg.getBoundingClientRect();
+        const divRect = document.getElementById('blocklyDiv').getBoundingClientRect();
+        
+        // Utiliser getRelativeToSurfaceXY pour la position dans le workspace
+        const blockXY = block.getRelativeToSurfaceXY();
+        const scale = workspace.scale;
+        const wsMetrics = workspace.getMetrics();
+        
+        // Position pixel = (position_workspace - scroll) * scale + offset_svg
+        const pixelX = (blockXY.x * scale) - wsMetrics.viewLeft * scale / 1 + (svgRect.left - divRect.left);
+        const pixelY = (blockXY.y * scale) - wsMetrics.viewTop * scale / 1 + (svgRect.top - divRect.top);
+        
+        // En fait, utilisons directement le SVG transform pour plus de fiabilité
+        const ctm = svgRoot.getScreenCTM();
+        if (!ctm) return null;
+        
+        return {
+            x: ctm.e - divRect.left,
+            y: ctm.f - divRect.top,
+            scale: ctm.a // scale factor
+        };
+    }
+    
+    function createCollapseBtn(block) {
+        const btn = document.createElement('div');
+        btn.className = 'proc-collapse-btn';
+        btn.dataset.blockId = block.id;
+        const collapsed = block.isCollapsed();
+        btn.innerHTML = collapsed ? '▶' : '▼';
+        btn.title = collapsed ? 'Déplier la fonction' : 'Plier la fonction';
+        btn.style.cssText = `
+            position: absolute;
+            pointer-events: auto;
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.3);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            line-height: 1;
+            user-select: none;
+            transition: background 0.15s;
+            border: 1px solid rgba(255,255,255,0.4);
+        `;
+        
+        btn.addEventListener('mouseenter', () => {
+            btn.style.background = 'rgba(255,255,255,0.55)';
+        });
+        btn.addEventListener('mouseleave', () => {
+            btn.style.background = 'rgba(255,255,255,0.3)';
+        });
+        btn.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+        });
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const isCollapsed = block.isCollapsed();
+            block.setCollapsed(!isCollapsed);
+            btn.innerHTML = !isCollapsed ? '▶' : '▼';
+            btn.title = !isCollapsed ? 'Déplier la fonction' : 'Plier la fonction';
+            // Repositionner après collapse
+            requestAnimationFrame(() => updateAllCollapseButtons());
+        });
+        
+        collapseOverlayContainer.appendChild(btn);
+        collapseButtons.set(block.id, btn);
+        return btn;
+    }
+    
+    function updateAllCollapseButtons() {
+        // Supprimer les boutons pour les blocs qui n'existent plus
+        for (const [blockId, btn] of collapseButtons) {
+            const block = workspace.getBlockById(blockId);
+            if (!block || block.isInFlyout || block.disposed) {
+                btn.remove();
+                collapseButtons.delete(blockId);
+            }
+        }
+        
+        // Mettre à jour / créer les boutons pour les blocs fonctions
+        const allBlocks = workspace.getAllBlocks(false);
+        for (const block of allBlocks) {
+            if (block.type !== 'procedures_defnoreturn' && block.type !== 'procedures_defreturn') continue;
+            if (block.isInFlyout) continue;
+            
+            let btn = collapseButtons.get(block.id);
+            if (!btn) {
+                btn = createCollapseBtn(block);
+            }
+            
+            // Mettre à jour l'icône
+            const collapsed = block.isCollapsed();
+            btn.innerHTML = collapsed ? '▶' : '▼';
+            btn.title = collapsed ? 'Déplier la fonction' : 'Plier la fonction';
+            
+            // Positionner le bouton
+            const pos = getBlockScreenPos(block);
+            if (pos) {
+                // Positionner à gauche du texte "fonction", légèrement décalé dans le bloc
+                // Le chapeau hat du renderer zelos a environ 16px de haut, le texte est ~au milieu
+                const offsetX = 8 * pos.scale;  // à gauche dans le bloc
+                const offsetY = 8 * pos.scale;  // aligné avec le texte du chapeau
+                btn.style.left = (pos.x + offsetX) + 'px';
+                btn.style.top = (pos.y + offsetY) + 'px';
+                btn.style.transform = `scale(${pos.scale})`;
+                btn.style.transformOrigin = 'top left';
+                btn.style.display = 'flex';
+            } else {
+                btn.style.display = 'none';
+            }
+        }
+    }
+    
+    // Écouter tous les changements pour repositionner
+    let dragAnimFrame = null;
+    
+    function dragTrackLoop() {
+        updateAllCollapseButtons();
+        dragAnimFrame = requestAnimationFrame(dragTrackLoop);
+    }
+    
+    workspace.addChangeListener((e) => {
+        // Pendant le drag, lancer une boucle d'animation pour suivre le bloc en temps réel
+        if (e.type === Blockly.Events.BLOCK_DRAG) {
+            if (e.isStart) {
+                // Début du drag : lancer la boucle de suivi
+                if (!dragAnimFrame) {
+                    dragAnimFrame = requestAnimationFrame(dragTrackLoop);
+                }
+            } else {
+                // Fin du drag : arrêter la boucle
+                if (dragAnimFrame) {
+                    cancelAnimationFrame(dragAnimFrame);
+                    dragAnimFrame = null;
+                }
+                requestAnimationFrame(updateAllCollapseButtons);
+            }
+        }
+        
+        // Mise à jour pour création, suppression, mouvement, changement, viewport
+        if (e.type === Blockly.Events.BLOCK_CREATE ||
+            e.type === Blockly.Events.BLOCK_DELETE ||
+            e.type === Blockly.Events.BLOCK_MOVE ||
+            e.type === Blockly.Events.BLOCK_CHANGE ||
+            e.type === Blockly.Events.VIEWPORT_CHANGE) {
+            requestAnimationFrame(updateAllCollapseButtons);
+        }
+    });
+    
+    // Aussi sur scroll/resize
+    const blocklyDiv = document.getElementById('blocklyDiv');
+    const resizeObs = new ResizeObserver(() => {
+        requestAnimationFrame(updateAllCollapseButtons);
+    });
+    resizeObs.observe(blocklyDiv);
+    
+    // Init après un délai
+    setTimeout(updateAllCollapseButtons, 500);
 }
 
 
@@ -1575,7 +1784,8 @@ function downloadHex() {
     const projectMeta = {
         version: 2,
         card1: card1Xml || currentXmlText,
-        card2: card2Xml || card1Xml || currentXmlText
+        card2: card2Xml || card1Xml || currentXmlText,
+        card2DuplicateFromCard1: card2DuplicateFromCard1
     };
     
     // Utilise la fonction globale de hex-generator.js qui télécharge le HEX avec métadonnées embarquées
@@ -1611,6 +1821,7 @@ function loadProject() {
                         card1Xml = projectData.card1;
                         card2Xml = projectData.card2 || null;
                         card2Initialized = !!card2Xml;
+                        card2DuplicateFromCard1 = projectData.card2DuplicateFromCard1 !== undefined ? projectData.card2DuplicateFromCard1 : true;
                         
                         const xmlToLoad = currentCard === 1 ? card1Xml : card2Xml || card1Xml;
                         const xml = Blockly.utils.xml.textToDom(xmlToLoad);
@@ -1663,6 +1874,7 @@ function loadProject() {
                         card1Xml = projectData.card1;
                         card2Xml = projectData.card2;
                         card2Initialized = true;
+                        card2DuplicateFromCard1 = projectData.card2DuplicateFromCard1 !== undefined ? projectData.card2DuplicateFromCard1 : true;
                         
                         const xmlToLoad = currentCard === 1 ? card1Xml : card2Xml;
                         const xml = Blockly.utils.xml.textToDom(xmlToLoad);
@@ -1804,6 +2016,11 @@ function switchToCard(cardNumber) {
     
     if (currentCard === 1) {
         card1Xml = currentXmlText;
+        // Si duplication active, synchroniser carte 2 aussi
+        if (card2DuplicateFromCard1) {
+            card2Xml = currentXmlText;
+            card2Initialized = true;
+        }
     } else {
         card2Xml = currentXmlText;
     }
@@ -1814,11 +2031,10 @@ function switchToCard(cardNumber) {
     
     // Charger le programme de la nouvelle carte
     if (cardNumber === 2) {
-        // Première ouverture de carte 2 : dupliquer carte 1
-        if (!card2Initialized) {
+        // Si duplication active ou première ouverture : dupliquer carte 1
+        if (card2DuplicateFromCard1 || !card2Initialized) {
             card2Xml = card1Xml;
             card2Initialized = true;
-            showToast('📻 Programme dupliqué depuis Carte 1', 'info');
         }
         
         if (card2Xml) {
@@ -1869,8 +2085,38 @@ function updateCardUI() {
             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
             </svg>
-            📻 Programme Carte 2
+            📻 Programme Carte 2 (carte distante)
+            <label id="duplicateCard1Label" style="display:inline-flex;align-items:center;gap:5px;margin-left:16px;font-size:12px;font-weight:normal;cursor:pointer;opacity:0.9;background:rgba(255,255,255,0.15);padding:3px 10px;border-radius:12px;">
+                <input type="checkbox" id="chkDuplicateCard1" ${card2DuplicateFromCard1 ? 'checked' : ''} 
+                    style="cursor:pointer;accent-color:#e3008c;width:14px;height:14px;">
+                Dupliquer le programme de la carte principale
+            </label>
         `;
+        
+        // Brancher l'événement de la checkbox
+        const chk = document.getElementById('chkDuplicateCard1');
+        if (chk) {
+            chk.addEventListener('change', (e) => {
+                card2DuplicateFromCard1 = e.target.checked;
+                if (card2DuplicateFromCard1) {
+                    // Recocher = dupliquer immédiatement le programme de la carte 1
+                    if (card1Xml) {
+                        card2Xml = card1Xml;
+                        try {
+                            const xml = Blockly.utils.xml.textToDom(card2Xml);
+                            workspace.clear();
+                            Blockly.Xml.domToWorkspace(xml, workspace);
+                        } catch (err) {
+                            console.error('Erreur duplication carte 1 → carte 2:', err);
+                        }
+                        showToast('📻 Programme carte 1 dupliqué vers la carte distante', 'info');
+                    }
+                } else {
+                    showToast('📻 La carte distante a maintenant son propre programme', 'info');
+                }
+            });
+        }
+        
         btnCard1.style.display = 'flex';
         blocklyDiv.classList.add('card2-workspace');
         

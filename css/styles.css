@@ -2645,3 +2645,11 @@ body {
 .orphan-block * {
     opacity: 1 !important;
 }
+
+/* ===== COLLAPSE BUTTON SUR LES BLOCS FONCTIONS ===== */
+.proc-collapse-btn {
+    z-index: 5;
+    font-family: sans-serif;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.3);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
