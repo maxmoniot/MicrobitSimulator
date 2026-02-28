@@ -807,6 +807,13 @@ function extractBothCards(fileContent, fileName) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// HAT BLOCK TYPES (needed by parser to filter orphans)
+// ═══════════════════════════════════════════════════════════
+const HAT_TYPES = ['on_start','forever','input_on_button_pressed','input_on_gesture',
+    'input_on_logo_event','radio_on_received_number','radio_on_received_string',
+    'cutebot_on_ir_receive','cutebot_on_track_event'];
+
+// ═══════════════════════════════════════════════════════════
 // BLOCKLY XML PARSER
 // ═══════════════════════════════════════════════════════════
 function parseBlocklyXml(xmlString) {
@@ -816,6 +823,13 @@ function parseBlocklyXml(xmlString) {
     const result = [];
 
     blocks.forEach(blockEl => {
+        // Exclure les blocs désactivés (disabled="true")
+        if (blockEl.getAttribute('disabled') === 'true') return;
+        
+        // Exclure les blocs orphelins (blocs top-level qui ne sont pas des chapeaux)
+        const blockType = blockEl.getAttribute('type');
+        if (!HAT_TYPES.includes(blockType) && blockType !== 'procedures_defnoreturn' && blockType !== 'procedures_defreturn') return;
+        
         const parsed = parseBlock(blockEl);
         if (parsed) result.push(parsed);
     });
@@ -824,6 +838,8 @@ function parseBlocklyXml(xmlString) {
 
 function parseBlock(el) {
     if (!el) return null;
+    // Exclure les blocs désactivés même à l'intérieur d'une chaîne
+    if (el.getAttribute('disabled') === 'true') return null;
     const type = el.getAttribute('type');
     const fields = {};
     const values = {};
@@ -889,9 +905,6 @@ function flattenChain(block) {
 // ═══════════════════════════════════════════════════════════
 // HAT BLOCK EXTRACTION
 // ═══════════════════════════════════════════════════════════
-const HAT_TYPES = ['on_start','forever','input_on_button_pressed','input_on_gesture',
-    'input_on_logo_event','radio_on_received_number','radio_on_received_string',
-    'cutebot_on_ir_receive','cutebot_on_track_event'];
 
 function extractHatBlocks(blocks) {
     const hats = [];
