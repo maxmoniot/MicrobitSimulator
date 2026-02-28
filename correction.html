@@ -505,6 +505,10 @@
         <button class="btn-primary" id="btnCorrect" disabled onclick="startCorrection()">
             ▶ Lancer la correction
         </button>
+        <label style="display:inline-flex;align-items:center;gap:8px;margin-left:16px;font-size:0.9rem;cursor:pointer;color:var(--text-dim);">
+            <input type="checkbox" id="chkIncludeCard2" style="cursor:pointer;width:16px;height:16px;accent-color:var(--accent);">
+            Prendre en compte le programme de la carte distante
+        </label>
     </div>
 
     <!-- Results -->
@@ -1909,10 +1913,11 @@ function startCorrection() {
         let result = comparePrograms(referenceData.hatBlocks, studentHats, correctionMode);
 
         // Analyse de cohérence du flux de données (mode objectif uniquement)
+        const includeCard2 = document.getElementById('chkIncludeCard2').checked;
         if (correctionMode === 'objective') {
             const cards = extractBothCards(sf.content, sf.name);
             let card2Hats = null;
-            if (cards.card2 && cards.card2 !== cards.card1) {
+            if (includeCard2 && cards.card2 && cards.card2 !== cards.card1) {
                 const card2Blocks = parseBlocklyXml(cards.card2);
                 card2Hats = extractHatBlocks(card2Blocks);
             }
@@ -1923,7 +1928,7 @@ function startCorrection() {
             // 2. Comportement bout-en-bout (ref vs élève)
             const refCards = extractBothCards(referenceData._rawContent, referenceData._rawName || 'ref.hex');
             let refCard2Hats = null;
-            if (refCards.card2 && refCards.card2 !== refCards.card1) {
+            if (includeCard2 && refCards.card2 && refCards.card2 !== refCards.card1) {
                 const refCard2Blocks = parseBlocklyXml(refCards.card2);
                 refCard2Hats = extractHatBlocks(refCard2Blocks);
             }
