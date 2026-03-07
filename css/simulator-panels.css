@@ -244,8 +244,10 @@
     gap: 12px;
     padding: 8px;
     flex: 1;
-    min-height: 120px;
+    min-height: 0;
+    min-width: 0;
     overflow: hidden;
+    height: 100%;
 }
 
 .microbit-controls-left {
@@ -253,6 +255,7 @@
     flex-direction: row;
     gap: 10px;
     align-items: flex-start;
+    flex-shrink: 0;
 }
 
 .controls-left-column {
@@ -286,9 +289,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    max-width: 260px;
+    min-width: 0;
+    min-height: 0;
     overflow: visible;
     perspective: 500px;
+    height: 100%;
 }
 
 .microbit-board-wrapper #microbitSimulator {
@@ -299,6 +304,7 @@
     justify-content: center;
     transform-style: preserve-3d;
     transition: transform 0.1s ease-out;
+    overflow: visible;
 }
 
 .microbit-board-wrapper #secondMicrobitSimulator {
@@ -309,18 +315,25 @@
     justify-content: center;
     transform-style: preserve-3d;
     transition: transform 0.1s ease-out;
+    overflow: visible;
 }
 
 .microbit-board-wrapper .microbit-board {
     transform-style: preserve-3d;
     transition: transform 0.1s ease-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
 }
 
 .microbit-board-wrapper svg {
-    width: 100%;
-    height: 100%;
-    max-height: 200px;
-    object-fit: contain;
+    display: block;
+    width: 85%;
+    height: 85%;
+    max-width: 100%;
+    max-height: 100%;
 }
 
 /* Groupe de slider vertical */
@@ -1079,25 +1092,36 @@
     align-items: center;
     justify-content: center;
     padding: 12px;
-    min-height: 120px;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
+    height: 100%;
 }
 
 .second-microbit-container {
     width: 100%;
-    max-width: 200px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    overflow: visible;
+}
+
+.second-microbit-container .microbit-board {
+    width: 100%;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.second-microbit-container .microbit-board {
-    max-width: 100%;
-}
-
 .second-microbit-container svg {
-    width: 100%;
-    height: auto;
-    max-height: 160px;
+    display: block;
+    width: 85%;
+    height: 85%;
+    max-width: 100%;
+    max-height: 100%;
 }
 
 /* Barre de statut radio */
@@ -1416,75 +1440,37 @@ header.header.card2-mode .logo h1 {
     background-clip: text !important;
 }
 
-/* ==================== ANIMATION ÉMISSION RADIO (WIFI) ==================== */
+/* ==================== ANIMATION EMISSION RADIO (WIFI) ==================== */
 
-.radio-wifi-container {
-    position: absolute;
-    top: 5px;
-    right: 5px;
+/* Elements SVG injectes directement dans le SVG de la carte micro:bit */
+.radio-wifi-group {
     pointer-events: none;
-    z-index: 100;
 }
 
-.radio-wifi-icon {
-    position: relative;
-    width: 32px;
-    height: 32px;
-}
-
-.wifi-dot {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 6px;
-    height: 6px;
-    background: #e3008c;
-    border-radius: 50%;
+.wifi-svg-dot {
     opacity: 0;
-    animation: wifi-element-appear 0.8s ease-out forwards;
+    animation: wifi-svg-appear 0.8s ease-out forwards;
 }
 
-.wifi-arc {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    border: 3px solid transparent;
-    border-top-color: #e3008c;
-    border-right-color: #e3008c;
-    border-radius: 0 50% 0 0;
-    transform-origin: bottom left;
+.wifi-svg-arc {
     opacity: 0;
 }
 
-.wifi-arc-1 {
-    width: 13px;
-    height: 13px;
-    animation: wifi-element-appear 0.8s ease-out 0.1s forwards;
+.wifi-svg-arc-1 {
+    animation: wifi-svg-appear 0.8s ease-out 0.1s forwards;
 }
 
-.wifi-arc-2 {
-    width: 21px;
-    height: 21px;
-    animation: wifi-element-appear 0.8s ease-out 0.2s forwards;
+.wifi-svg-arc-2 {
+    animation: wifi-svg-appear 0.8s ease-out 0.2s forwards;
 }
 
-.wifi-arc-3 {
-    width: 29px;
-    height: 29px;
-    animation: wifi-element-appear 0.8s ease-out 0.3s forwards;
+.wifi-svg-arc-3 {
+    animation: wifi-svg-appear 0.8s ease-out 0.3s forwards;
 }
 
-@keyframes wifi-element-appear {
-    0% {
-        opacity: 0;
-    }
-    30% {
-        opacity: 1;
-    }
-    70% {
-        opacity: 1;
-    }
-    100% {
-        opacity: 0;
-    }
+@keyframes wifi-svg-appear {
+    0% { opacity: 0; }
+    30% { opacity: 1; }
+    70% { opacity: 1; }
+    100% { opacity: 0; }
 }

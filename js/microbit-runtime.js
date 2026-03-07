@@ -181,26 +181,123 @@ function __mbSetSpeakerEnabled(enabled) {
 }
 
 async function __mbPlaySoundEffect(sound) {
-    // Les effets sonores V2 - à implémenter avec des sons pré-enregistrés
-    // Pour l'instant, joue une simple mélodie
     if (!microbitSim) return;
+    if (!microbitSim.speakerEnabled) return;
+    microbitSim.initAudio();
+    const ctx = microbitSim.audioContext;
+    if (!ctx) return;
     
-    const effects = {
-        'giggle': [523, 659, 784, 659, 523],
-        'happy': [262, 330, 392, 523],
-        'hello': [523, 392, 330, 262, 330, 392],
-        'mysterious': [262, 247, 220, 196],
-        'sad': [392, 330, 262, 196],
-        'slide': [262, 294, 330, 349, 392, 440, 494, 523],
-        'soaring': [262, 330, 392, 523, 659, 784],
-        'spring': [262, 392, 330, 440, 349, 494],
-        'twinkle': [262, 262, 392, 392, 440, 440, 392],
-        'yawn': [523, 440, 349, 262, 196]
+    // Arreter le son precedent
+    if (microbitSim.currentOscillator) {
+        try { microbitSim.currentOscillator.stop(); } catch(_) {}
+        microbitSim.currentOscillator = null;
+    }
+    
+    // Synthese des sons integres micro:bit V2
+    // Chaque son est defini par: freq_start, freq_end, duration, vol_start, vol_end,
+    // waveform (sine/square/triangle/sawtooth/noise), fx (none/vibrato/tremolo/warble)
+    const sounds = {
+        'giggle': [
+            { fs: 1600, fe: 2200, d: 150, vs: 1, ve: 0.8, w: 'square', fx: 'vibrato' },
+            { fs: 2000, fe: 2600, d: 100, vs: 0.8, ve: 0.6, w: 'square', fx: 'vibrato' },
+            { fs: 1800, fe: 2400, d: 120, vs: 0.7, ve: 0.5, w: 'square', fx: 'vibrato' },
+            { fs: 2200, fe: 2800, d: 80, vs: 0.6, ve: 0.3, w: 'square', fx: 'vibrato' },
+            { fs: 1500, fe: 2000, d: 100, vs: 0.5, ve: 0, w: 'square', fx: 'vibrato' }
+        ],
+        'happy': [
+            { fs: 500, fe: 1000, d: 200, vs: 1, ve: 0.8, w: 'square', fx: 'none' },
+            { fs: 800, fe: 1500, d: 200, vs: 0.8, ve: 0.6, w: 'square', fx: 'none' },
+            { fs: 1200, fe: 2000, d: 300, vs: 0.7, ve: 0, w: 'square', fx: 'vibrato' }
+        ],
+        'hello': [
+            { fs: 500, fe: 800, d: 200, vs: 1, ve: 0.9, w: 'triangle', fx: 'none' },
+            { fs: 800, fe: 600, d: 150, vs: 0.9, ve: 0.8, w: 'triangle', fx: 'none' },
+            { fs: 600, fe: 900, d: 200, vs: 0.8, ve: 0.7, w: 'triangle', fx: 'none' },
+            { fs: 900, fe: 1200, d: 300, vs: 0.7, ve: 0, w: 'triangle', fx: 'vibrato' }
+        ],
+        'mysterious': [
+            { fs: 400, fe: 200, d: 400, vs: 0.8, ve: 0.6, w: 'sine', fx: 'vibrato' },
+            { fs: 300, fe: 150, d: 400, vs: 0.6, ve: 0.4, w: 'sine', fx: 'vibrato' },
+            { fs: 200, fe: 100, d: 500, vs: 0.4, ve: 0, w: 'sine', fx: 'vibrato' }
+        ],
+        'sad': [
+            { fs: 800, fe: 400, d: 300, vs: 1, ve: 0.7, w: 'triangle', fx: 'none' },
+            { fs: 500, fe: 300, d: 300, vs: 0.7, ve: 0.4, w: 'triangle', fx: 'none' },
+            { fs: 350, fe: 200, d: 400, vs: 0.4, ve: 0, w: 'triangle', fx: 'none' }
+        ],
+        'slide': [
+            { fs: 200, fe: 2000, d: 600, vs: 0.8, ve: 0.8, w: 'sawtooth', fx: 'none' },
+            { fs: 2000, fe: 200, d: 600, vs: 0.8, ve: 0, w: 'sawtooth', fx: 'none' }
+        ],
+        'soaring': [
+            { fs: 200, fe: 400, d: 200, vs: 0.6, ve: 0.7, w: 'sine', fx: 'none' },
+            { fs: 400, fe: 800, d: 200, vs: 0.7, ve: 0.8, w: 'sine', fx: 'none' },
+            { fs: 800, fe: 1600, d: 300, vs: 0.8, ve: 0.9, w: 'sine', fx: 'vibrato' },
+            { fs: 1600, fe: 2500, d: 400, vs: 0.9, ve: 0, w: 'sine', fx: 'vibrato' }
+        ],
+        'spring': [
+            { fs: 600, fe: 1200, d: 100, vs: 1, ve: 0.5, w: 'square', fx: 'none' },
+            { fs: 1200, fe: 800, d: 100, vs: 0.5, ve: 0.8, w: 'square', fx: 'none' },
+            { fs: 800, fe: 1400, d: 100, vs: 0.8, ve: 0.4, w: 'square', fx: 'none' },
+            { fs: 1400, fe: 1000, d: 100, vs: 0.4, ve: 0.7, w: 'square', fx: 'none' },
+            { fs: 1000, fe: 1600, d: 100, vs: 0.7, ve: 0, w: 'square', fx: 'none' }
+        ],
+        'twinkle': [
+            { fs: 1000, fe: 1500, d: 150, vs: 0.8, ve: 0.2, w: 'sine', fx: 'none' },
+            { fs: 1500, fe: 1000, d: 150, vs: 0.2, ve: 0.8, w: 'sine', fx: 'none' },
+            { fs: 1200, fe: 1800, d: 150, vs: 0.8, ve: 0.2, w: 'sine', fx: 'none' },
+            { fs: 1800, fe: 1200, d: 150, vs: 0.2, ve: 0.8, w: 'sine', fx: 'none' },
+            { fs: 1000, fe: 2000, d: 200, vs: 0.8, ve: 0, w: 'sine', fx: 'none' }
+        ],
+        'yawn': [
+            { fs: 800, fe: 600, d: 300, vs: 0.8, ve: 0.7, w: 'triangle', fx: 'vibrato' },
+            { fs: 600, fe: 400, d: 400, vs: 0.7, ve: 0.5, w: 'triangle', fx: 'vibrato' },
+            { fs: 400, fe: 200, d: 500, vs: 0.5, ve: 0, w: 'triangle', fx: 'vibrato' }
+        ]
     };
     
-    const notes = effects[sound] || [440];
-    for (const freq of notes) {
-        await microbitSim.playTone(freq, 100);
+    const segments = sounds[sound] || [{ fs: 440, fe: 440, d: 300, vs: 0.5, ve: 0, w: 'square', fx: 'none' }];
+    
+    for (const seg of segments) {
+        const t0 = ctx.currentTime;
+        const dur = seg.d / 1000;
+        
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.type = seg.w === 'noise' ? 'sawtooth' : seg.w;
+        osc.frequency.setValueAtTime(seg.fs, t0);
+        osc.frequency.linearRampToValueAtTime(seg.fe, t0 + dur);
+        
+        gain.gain.setValueAtTime(seg.vs * 0.1, t0);
+        gain.gain.linearRampToValueAtTime(seg.ve * 0.1, t0 + dur);
+        
+        // Effet vibrato
+        if (seg.fx === 'vibrato') {
+            const lfo = ctx.createOscillator();
+            const lfoGain = ctx.createGain();
+            lfo.frequency.value = 8;
+            lfoGain.gain.value = (seg.fs + seg.fe) / 2 * 0.05;
+            lfo.connect(lfoGain);
+            lfoGain.connect(osc.frequency);
+            lfo.start(t0);
+            lfo.stop(t0 + dur);
+        }
+        
+        microbitSim.currentOscillator = osc;
+        osc.start(t0);
+        osc.stop(t0 + dur);
+        
+        try {
+            await microbitSim.pause(seg.d);
+        } catch (e) {
+            try { osc.stop(); } catch(_) {}
+            microbitSim.currentOscillator = null;
+            throw e;
+        }
+        microbitSim.currentOscillator = null;
     }
 }
 

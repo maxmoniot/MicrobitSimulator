@@ -39,6 +39,22 @@ class SimulatorPanelsManager {
         
         // Distribuer l'espace initial
         this.distributeSpace();
+        
+        // Observer les changements de taille du conteneur pour redistribuer automatiquement
+        this._resizeTimeout = null;
+        this._lastContainerHeight = this.container.clientHeight;
+        const resizeObs = new ResizeObserver(() => {
+            const newHeight = this.container.clientHeight;
+            // Ne redistribuer que si la hauteur du conteneur a reellement change
+            if (Math.abs(newHeight - this._lastContainerHeight) > 5) {
+                this._lastContainerHeight = newHeight;
+                clearTimeout(this._resizeTimeout);
+                this._resizeTimeout = setTimeout(() => {
+                    this.distributeSpace();
+                }, 50);
+            }
+        });
+        resizeObs.observe(this.container);
     }
     
     setupPanel(panel) {

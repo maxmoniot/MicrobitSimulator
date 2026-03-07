@@ -1,36 +1,28 @@
 # MFRC522 RFID Library for BBC micro:bit
-# Port du code TypeScript MakeCode (joy-it/pxt-rfid-mfrc522)
-# Version corrigee - pins SPI identiques a MakeCode:
-# spiPins(P15, P14, P13) => MOSI=P15, MISO=P14, SCK=P13
-# CS/NSS=P16
+# Port fidele du code TypeScript MakeCode (joy-it/pxt-rfid-mfrc522)
 
 from microbit import *
 
 class MFRC522:
-    # Status codes
     MI_OK = 0
     MI_NOTAGERR = 1
     MI_ERR = 2
     
-    # PICC commands
     PICC_REQIDL = 0x26
     PICC_REQALL = 0x52
     PICC_ANTICOLL = 0x93
     PICC_SELECTTAG = 0x93
     PICC_AUTHENT1A = 0x60
-    PICC_AUTHENT1B = 0x61
     PICC_READ = 0x30
     PICC_WRITE = 0xA0
     PICC_HALT = 0x50
     
-    # PCD commands
     PCD_IDLE = 0x00
     PCD_AUTHENT = 0x0E
     PCD_TRANSCEIVE = 0x0C
     PCD_RESETPHASE = 0x0F
     PCD_CALCCRC = 0x03
     
-    # Registers
     CommandReg = 0x01
     CommIEnReg = 0x02
     DivIEnReg = 0x03
@@ -52,34 +44,28 @@ class MFRC522:
     TReloadRegH = 0x2C
     TReloadRegL = 0x2D
     
+    BLOCK_ADDRS = [8, 9, 10]
+    KEY = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
+    
     def __init__(self):
         self.cs = pin16
         self.cs.write_digital(1)
-        # IMPORTANT: Configuration SPI identique a MakeCode
-        # MakeCode: pins.spiPins(DigitalPin.P15, DigitalPin.P14, DigitalPin.P13)
-        # => MOSI=P15, MISO=P14, SCK=P13
-        # MakeCode: pins.spiFormat(8, 3) => mode 3 (CPOL=1, CPHA=1)
-        # MakeCode: pins.spiFrequency(1000000) => 1MHz
-        spi.init(baudrate=1000000, bits=8, mode=3, sclk=pin13, mosi=pin15, miso=pin14)
-        # Buffer pour les transferts SPI
+        spi.init(baudrate=1000000, bits=8, mode=0, sclk=pin13, mosi=pin15, miso=pin14)
         self._buf = bytearray(1)
         self._rbuf = bytearray(1)
     
     def _spi_transfer(self, val):
-        """Transfert SPI d'un octet - equivalent a pins.spiWrite()"""
         self._buf[0] = val
         spi.write_readinto(self._buf, self._rbuf)
         return self._rbuf[0]
     
     def _wreg(self, reg, val):
-        """Ecriture registre - Write_MFRC522"""
         self.cs.write_digital(0)
         self._spi_transfer((reg << 1) & 0x7E)
         self._spi_transfer(val)
         self.cs.write_digital(1)
     
     def _rreg(self, reg):
-        """Lecture registre - Read_MFRC522"""
         self.cs.write_digital(0)
         self._spi_transfer(((reg << 1) & 0x7E) | 0x80)
         val = self._spi_transfer(0)
@@ -123,7 +109,7 @@ class MFRC522:
         while True:
             n = self._rreg(self.CommIrqReg)
             i -= 1
-            if (i == 0) or (n & 0x01) or (n & wait_irq):
+            if not (i != 0 and not (n & 0x01) and not (n & wait_irq)):
                 break
         
         self._cflags(self.BitFramingReg, 0x80)
@@ -168,21 +154,11 @@ class MFRC522:
         while True:
             n = self._rreg(self.DivIrqReg)
             i -= 1
-            if (i == 0) or (n & 0x04):
+            if not (i != 0 and not (n & 0x04)):
                 break
         
-        return [self._rreg(self.CRCResultRegL), self._rreg(self.CRCResultRegH)]
-    
-    def _reset(self):
-        self._wreg(self.CommandReg, self.PCD_RESETPHASE)
-    
-    def _antenna_on(self):
-        val = self._rreg(self.TxControlReg)
-        if (val & 0x03) != 0x03:
-            self._sflags(self.TxControlReg, 0x03)
-    
-    def _antenna_off(self):
-        self._cflags(self.TxControlReg, 0x03)
+        # Ordre H, L comme dans MakeCode
+        return [self._rreg(self.CRCResultRegH), self._rreg(self.CRCResultRegL)]
     
     def _request(self, mode):
         self._wreg(self.BitFramingReg, 0x07)
@@ -194,9 +170,7 @@ class MFRC522:
     def _anticoll(self):
         ser_chk = 0
         self._wreg(self.BitFramingReg, 0x00)
-        
         status, recv, bits = self._tocard(self.PCD_TRANSCEIVE, [self.PICC_ANTICOLL, 0x20])
-        
         if status == self.MI_OK:
             if len(recv) == 5:
                 for i in range(4):
@@ -205,7 +179,6 @@ class MFRC522:
                     status = self.MI_ERR
             else:
                 status = self.MI_ERR
-        
         return status, recv
     
     def _select_tag(self, uid):
@@ -224,116 +197,152 @@ class MFRC522:
         buf = [self.PICC_READ, addr]
         buf += self._crc(buf)
         status, recv, _ = self._tocard(self.PCD_TRANSCEIVE, buf)
-        return recv if status == self.MI_OK else None
+        if status != self.MI_OK:
+            return None
+        if len(recv) != 16:
+            return None
+        return recv
     
     def _write_block(self, addr, data):
         buf = [self.PICC_WRITE, addr]
         buf += self._crc(buf)
         status, recv, bits = self._tocard(self.PCD_TRANSCEIVE, buf)
-        
         if status != self.MI_OK or bits != 4 or (recv[0] & 0x0F) != 0x0A:
             return self.MI_ERR
-        
         buf = list(data[:16])
         while len(buf) < 16:
             buf.append(0)
         buf += self._crc(buf)
-        
         status, recv, bits = self._tocard(self.PCD_TRANSCEIVE, buf)
         if status != self.MI_OK or bits != 4 or (recv[0] & 0x0F) != 0x0A:
             return self.MI_ERR
-        
         return self.MI_OK
     
-    # ===== Public API (comme MakeCode) =====
+    def _antenna_on(self):
+        val = self._rreg(self.TxControlReg)
+        if not (val & 0x03):
+            self._sflags(self.TxControlReg, 0x03)
     
-    def Init(self):
-        """Initialize RFID module - MFRC522.Init()"""
-        self._reset()
+    def _antenna_off(self):
+        self._cflags(self.TxControlReg, 0x03)
+    
+    def _soft_reset(self):
+        """Reset complet du MFRC522 sans toucher au SPI"""
+        self._wreg(self.CommandReg, self.PCD_RESETPHASE)
         sleep(50)
-        
         self._wreg(self.TModeReg, 0x8D)
         self._wreg(self.TPrescalerReg, 0x3E)
         self._wreg(self.TReloadRegL, 30)
         self._wreg(self.TReloadRegH, 0)
         self._wreg(self.TxAutoReg, 0x40)
         self._wreg(self.ModeReg, 0x3D)
-        
         self._antenna_on()
     
+    # ===== Public API =====
+    
+    def Init(self):
+        """Initialize RFID module"""
+        self._soft_reset()
+    
     def getID(self):
-        """Get card UID as number - MFRC522.getID()"""
+        """Lire l ID unique de la carte"""
         status, _ = self._request(self.PICC_REQIDL)
         if status != self.MI_OK:
             return 0
-        
         status, uid = self._anticoll()
         if status != self.MI_OK:
             return 0
-        
         uid_int = 0
         for i in range(4):
             uid_int = (uid_int << 8) | uid[i]
-        
         self._stop_crypto1()
         return uid_int
     
-    def read(self):
-        """Read data from card - MFRC522.read()"""
-        key = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
-        
+    def _readFromCard(self):
+        """Port exact de readFromCard() du TypeScript MakeCode"""
         status, _ = self._request(self.PICC_REQIDL)
         if status != self.MI_OK:
-            return ""
+            return None
         
         status, uid = self._anticoll()
         if status != self.MI_OK:
-            return ""
+            return None
         
-        if self._select_tag(uid) != self.MI_OK:
-            return ""
+        self._select_tag(uid)
+        status = self._auth(self.PICC_AUTHENT1A, 11, self.KEY, uid)
         
-        if self._auth(self.PICC_AUTHENT1A, 4, key, uid) == self.MI_OK:
-            data = self._read_block(4)
-            self._stop_crypto1()
+        data = []
+        if status == self.MI_OK:
+            for block in self.BLOCK_ADDRS:
+                block_data = self._read_block(block)
+                if block_data:
+                    data += block_data
+            text = ""
             if data:
-                result = ""
-                for b in data:
-                    if b == 0:
-                        break
-                    if 32 <= b < 127:
-                        result += chr(b)
-                return result
+                for c in data:
+                    text += chr(c)
+        else:
+            text = None
         
         self._stop_crypto1()
+        return text
+    
+    def read(self):
+        """Lire les donnees - non bloquant comme getID()"""
+        text = self._readFromCard()
+        if text is not None and text.strip():
+            return text.strip()
+        # Si la carte a ete detectee mais la lecture a echoue,
+        # une seule tentative avec soft reset
+        if text is not None:
+            self._soft_reset()
+            text = self._readFromCard()
+            if text is not None and text.strip():
+                return text.strip()
         return ""
     
-    def write(self, text):
-        """Write data to card - MFRC522.write()"""
-        key = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
-        
+    def _writeToCard(self, txt):
+        """Port exact de writeToCard() du TypeScript MakeCode"""
         status, _ = self._request(self.PICC_REQIDL)
         if status != self.MI_OK:
-            return False
+            return None
         
         status, uid = self._anticoll()
         if status != self.MI_OK:
-            return False
+            return None
         
-        if self._select_tag(uid) != self.MI_OK:
-            return False
+        self._select_tag(uid)
+        status = self._auth(self.PICC_AUTHENT1A, 11, self.KEY, uid)
+        self._read_block(11)
         
-        if self._auth(self.PICC_AUTHENT1A, 4, key, uid) == self.MI_OK:
-            data = [ord(c) for c in str(text)[:16]]
-            while len(data) < 16:
-                data.append(0)
-            status = self._write_block(4, data)
-            self._stop_crypto1()
-            return status == self.MI_OK
+        if status == self.MI_OK:
+            data = []
+            for i in range(len(txt)):
+                data.append(ord(txt[i]))
+            for j in range(len(txt), 48):
+                data.append(32)
+            
+            b = 0
+            for block in self.BLOCK_ADDRS:
+                self._write_block(block, data[b*16:(b+1)*16])
+                b += 1
         
         self._stop_crypto1()
+        return True if status == self.MI_OK else None
+    
+    def write(self, text):
+        """Ecrire des donnees - non bloquant"""
+        txt = str(text)
+        result = self._writeToCard(txt)
+        if result:
+            return True
+        # Une seule tentative avec soft reset
+        self._soft_reset()
+        result = self._writeToCard(txt)
+        if result:
+            return True
         return False
     
     def AntennaOff(self):
-        """Turn antenna off - MFRC522.AntennaOff()"""
+        """Eteindre l antenne"""
         self._antenna_off()

@@ -12,6 +12,16 @@
         return;
     }
 
+    // ============== SUPPORT VIRGULE FRANÇAISE DANS LES CHAMPS NUMÉRIQUES ==============
+    // Permet aux élèves de taper 0,5 au lieu de 0.5
+    const originalDoClassValidation = Blockly.FieldNumber.prototype.doClassValidation_;
+    Blockly.FieldNumber.prototype.doClassValidation_ = function(newValue) {
+        if (typeof newValue === 'string') {
+            newValue = newValue.replace(',', '.');
+        }
+        return originalDoClassValidation.call(this, newValue);
+    };
+
     // ============== BLOC IF PERSONNALISÉ (style MakeCode) ==============
     
     Blockly.Blocks['cutebot_if'] = {
@@ -237,12 +247,12 @@
                 .setCheck("Number")
                 .appendField("⏱️ pause");
             this.appendDummyInput()
-                .appendField("ms");
+                .appendField("seconde(s)");
             this.setInputsInline(true);
             this.setPreviousStatement(true, null);
             this.setNextStatement(true, null);
             this.setColour('#3b82f6');
-            this.setTooltip("Pause en millisecondes");
+            this.setTooltip("Pause en secondes (ex: 0.5 pour une demi-seconde)");
         }
     };
 
@@ -730,8 +740,8 @@
     };
 
     jsGen.forBlock['basic_pause'] = function(block) {
-        const ms = jsGen.valueToCode(block, 'MS', jsGen.ORDER_ATOMIC) || '0';
-        return 'await __pause(' + ms + ');\n';
+        const seconds = jsGen.valueToCode(block, 'MS', jsGen.ORDER_ATOMIC) || '0';
+        return 'await __pauseSeconds(' + seconds + ');\n';
     };
 
     // Moteurs

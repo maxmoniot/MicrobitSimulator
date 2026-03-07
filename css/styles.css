@@ -389,11 +389,22 @@ body {
 /* Séparateur redimensionnable */
 .resizer {
     flex: 0 0 3px;
-    background: #1a1a2e;
+    background: transparent;
     cursor: col-resize;
     position: relative;
-    transition: background 0.2s;
     margin: 0 var(--space-sm);
+    /* Zone de clic elargie sans changer la taille visuelle */
+}
+
+.resizer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -8px;
+    width: 19px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 5;
 }
 
 .resizer::before {
@@ -407,10 +418,7 @@ body {
     background: rgba(139, 92, 246, 0.4);
     border-radius: 2px;
     transition: var(--transition);
-}
-
-.resizer:hover {
-    background: #252545;
+    z-index: 6;
 }
 
 .resizer:hover::before {
@@ -421,6 +429,35 @@ body {
 
 .resizer:active::before {
     background: var(--primary-light);
+}
+
+/* Bouton de reouverture du simulateur */
+.simulator-reopen-btn {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: linear-gradient(135deg, #1e1e3e, #2a2a5e);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.4);
+    border-right: none;
+    border-radius: 8px 0 0 8px;
+    padding: 12px 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    writing-mode: vertical-lr;
+    text-orientation: mixed;
+    z-index: 50;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+}
+
+.simulator-reopen-btn:hover {
+    background: linear-gradient(135deg, #2a2a5e, #3a3a7e);
+    color: #c4b5fd;
+    border-color: rgba(139, 92, 246, 0.7);
+    padding-right: 12px;
 }
 
 .panel-header {

@@ -60,6 +60,12 @@ async function __pause(ms) {
     }
 }
 
+async function __pauseSeconds(s) {
+    // Gestion virgule francaise: "0,5" -> 0.5
+    if (typeof s === 'string') s = parseFloat(s.replace(',', '.'));
+    await __pause(Math.round(s * 1000));
+}
+
 function __motors(l, r) { if (simulator) simulator.setMotors(l, r); }
 function __forward() { if (simulator) simulator.forward(); }
 function __backward() { if (simulator) simulator.backward(); }
@@ -130,6 +136,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             if (workspace) Blockly.svgResize(workspace);
             if (simulator) simulator.resizeCanvas();
+            // Recalculer la distribution des panneaux simulateur
+            if (window.simulatorPanels) window.simulatorPanels.distributeSpace();
         }, 100);
     });
     
@@ -1769,7 +1777,7 @@ function openInMakeCode() {
     downloadHexFile(currentCode);
 }
 
-function downloadHex() {
+async function downloadHex() {
     updateGeneratedCode();
     
     // Préparer les métadonnées du projet (Blockly XML) pour les embarquer dans le HEX
@@ -1789,14 +1797,14 @@ function downloadHex() {
     };
     
     // Utilise la fonction globale de hex-generator.js qui télécharge le HEX avec métadonnées embarquées
-    downloadHexFile(currentCode, projectMeta);
+    await downloadHexFile(currentCode, projectMeta);
 }
 
 // ============== SAVE/LOAD ==============
 function loadProject() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.xml,.json,.hex';
+    input.accept = '.xml,.json,.hex,.mkcd';
     input.onchange = (e) => {
         const file = e.target.files[0];
         const reader = new FileReader();
@@ -1835,6 +1843,53 @@ function loadProject() {
                         return;
                     } else {
                         showToast('❌ Métadonnées HEX invalides', 'error');
+                        return;
+                    }
+                }
+                
+                // ===== Détection fichier .mkcd (MakeCode project) =====
+                if (file.name.endsWith('.mkcd')) {
+                    try {
+                        const mkcdData = JSON.parse(content);
+                        
+                        // Chercher les metadonnees Blockly embarquees
+                        if (mkcdData['_blockly_project']) {
+                            const projectData = JSON.parse(mkcdData['_blockly_project']);
+                            
+                            if (projectData.version === 2 && projectData.card1) {
+                                card1Xml = projectData.card1;
+                                card2Xml = projectData.card2 || null;
+                                card2Initialized = !!card2Xml;
+                                card2DuplicateFromCard1 = projectData.card2DuplicateFromCard1 !== undefined ? projectData.card2DuplicateFromCard1 : true;
+                                
+                                const xmlToLoad = currentCard === 1 ? card1Xml : card2Xml || card1Xml;
+                                const xml = Blockly.utils.xml.textToDom(xmlToLoad);
+                                workspace.clear();
+                                Blockly.Xml.domToWorkspace(xml, workspace);
+                                
+                                const cardsMsg = card2Xml ? ' (2 cartes)' : '';
+                                showToast('📂 Projet chargé depuis .mkcd' + cardsMsg, 'success');
+                                updateCard2ButtonVisibility();
+                                openRequiredPanelsAndRun();
+                                return;
+                            } else if (projectData.card1) {
+                                // Format v1 simple
+                                const xml = Blockly.utils.xml.textToDom(projectData.card1);
+                                workspace.clear();
+                                Blockly.Xml.domToWorkspace(xml, workspace);
+                                showToast('📂 Projet chargé depuis .mkcd', 'success');
+                                openRequiredPanelsAndRun();
+                                return;
+                            }
+                        }
+                        
+                        // Pas de metadonnees Blockly : fichier mkcd sans blocs
+                        showToast('⚠️ Ce fichier .mkcd ne contient pas de données de blocs.\nIl a peut-être été créé avec une ancienne version.', 'error');
+                        return;
+                        
+                    } catch (mkcdErr) {
+                        console.error('Erreur parsing mkcd:', mkcdErr);
+                        showToast('❌ Fichier .mkcd invalide', 'error');
                         return;
                     }
                 }
@@ -2141,7 +2196,9 @@ function updateCardUI() {
         
         // Changer le texte du bouton télécharger
         if (btnMakeCodeText) {
-            btnMakeCodeText.textContent = 'Télécharger le programme de la carte 2';
+            btnMakeCodeText.textContent = (window.WebUSBFlasher && window.WebUSBFlasher.checkSupport()) 
+                ? 'Téléverser / Télécharger (carte 2)' 
+                : 'Télécharger le programme de la carte 2';
         }
         
         // Changer la couleur de fond du workspace Blockly (rose plus prononcé)
@@ -2186,7 +2243,9 @@ function updateCardUI() {
         
         // Remettre le texte du bouton télécharger
         if (btnMakeCodeText) {
-            btnMakeCodeText.textContent = 'Télécharger mon programme';
+            btnMakeCodeText.textContent = (window.WebUSBFlasher && window.WebUSBFlasher.checkSupport())
+                ? 'Téléverser / Télécharger'
+                : 'Télécharger mon programme';
         }
         
         // Remettre la couleur de fond normale
@@ -2293,10 +2352,57 @@ function initResizer() {
     
     let isResizing = false;
     
+    // Creer le bouton de reouverture du simulateur
+    let reopenBtn = document.getElementById('simulatorReopenBtn');
+    if (!reopenBtn) {
+        reopenBtn = document.createElement('button');
+        reopenBtn.id = 'simulatorReopenBtn';
+        reopenBtn.className = 'simulator-reopen-btn';
+        reopenBtn.innerHTML = '◀ Simulateur';
+        reopenBtn.title = 'Réouvrir le simulateur';
+        reopenBtn.style.display = 'none';
+        reopenBtn.addEventListener('click', () => {
+            editorPanel.style.flex = '0 0 55%';
+            simulatorPanel.style.flex = '0 0 44.5%';
+            simulatorPanel.style.display = '';
+            resizer.style.display = '';
+            reopenBtn.style.display = 'none';
+            Blockly.svgResize(workspace);
+            if (window.simulatorPanels) window.simulatorPanels.distributeSpace();
+        });
+        const mainContent = document.querySelector('.main-content');
+        if (mainContent) mainContent.appendChild(reopenBtn);
+    }
+    
+    function checkSimulatorVisible() {
+        const container = document.querySelector('.main-content');
+        if (!container) return;
+        const containerWidth = container.getBoundingClientRect().width;
+        const simWidth = simulatorPanel.getBoundingClientRect().width;
+        
+        if (simWidth < 30) {
+            // Simulateur trop petit, le cacher et afficher le bouton
+            simulatorPanel.style.display = 'none';
+            resizer.style.display = 'none';
+            editorPanel.style.flex = '1 1 100%';
+            reopenBtn.style.display = '';
+        } else {
+            reopenBtn.style.display = 'none';
+        }
+    }
+    
     resizer.addEventListener('mousedown', (e) => {
         isResizing = true;
         document.body.style.cursor = 'col-resize';
         document.body.style.userSelect = 'none';
+    });
+    
+    // Double-clic pour remettre 50/50
+    resizer.addEventListener('dblclick', (e) => {
+        editorPanel.style.flex = '0 0 55%';
+        simulatorPanel.style.flex = '0 0 44.5%';
+        Blockly.svgResize(workspace);
+        if (window.simulatorPanels) window.simulatorPanels.distributeSpace();
     });
     
     document.addEventListener('mousemove', (e) => {
@@ -2306,12 +2412,12 @@ function initResizer() {
         const containerRect = container.getBoundingClientRect();
         const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
         
-        // Permettre de réduire complètement (0%) ou d'agrandir complètement (100%)
+        // Permettre de reduire completement (0%) ou d'agrandir completement (100%)
         if (newWidth >= 0 && newWidth <= 100) {
             editorPanel.style.flex = `0 0 ${newWidth}%`;
             simulatorPanel.style.flex = `0 0 ${100 - newWidth - 0.5}%`;
             
-            // Réappliquer la marge des contrôles de zoom avant le resize
+            // Reappliquer la marge des controles de zoom avant le resize
             if (workspace && workspace.zoomControls_) {
                 workspace.zoomControls_.MARGIN_VERTICAL = 80;
             }
@@ -2321,9 +2427,15 @@ function initResizer() {
     });
     
     document.addEventListener('mouseup', () => {
-        isResizing = false;
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
+        if (isResizing) {
+            isResizing = false;
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            // Recalculer les panneaux apres le redimensionnement
+            if (window.simulatorPanels) window.simulatorPanels.distributeSpace();
+            // Verifier si le simulateur est trop petit
+            checkSimulatorVisible();
+        }
     });
 }
 

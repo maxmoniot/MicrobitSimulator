@@ -87,6 +87,14 @@ class MicrobitSimulator {
             const response = await fetch('images/Microbit.svg');
             const svgText = await response.text();
             this.container.innerHTML = `<div class="microbit-board">${svgText}</div>`;
+            // Forcer le SVG a etre responsive
+            const svg = this.container.querySelector('svg');
+            if (svg) {
+                svg.setAttribute('width', '100%');
+                svg.setAttribute('height', '100%');
+                svg.setAttribute('overflow', 'visible');
+                svg.style.display = 'block';
+            }
             await new Promise(resolve => requestAnimationFrame(resolve));
             await new Promise(resolve => requestAnimationFrame(resolve));
         } catch (error) {

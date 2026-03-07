@@ -73,15 +73,24 @@ const WebUSBFlasher = {
             return true;
         }
         
-        try {
-            // Charger la librairie depuis esm.sh (CDN pour modules ES)
-            this.microbitConnection = await import('https://esm.sh/@microbit/microbit-connection@0.0.0-alpha.39');
-            console.log('✅ Librairie microbit-connection chargée');
-            return true;
-        } catch (error) {
-            console.error('❌ Erreur chargement librairie microbit-connection:', error);
-            return false;
+        // Essayer plusieurs CDN de @microbit/microbit-connection
+        const urls = [
+            'https://esm.sh/@microbit/microbit-connection@0.0.0-alpha.39',
+            'https://cdn.jsdelivr.net/npm/@microbit/microbit-connection@0.0.0-alpha.39/+esm'
+        ];
+        
+        for (const url of urls) {
+            try {
+                this.microbitConnection = await import(url);
+                console.log('✅ Librairie microbit-connection chargée depuis', url);
+                return true;
+            } catch (e) {
+                console.warn('⚠️ Echec chargement depuis', url, e.message);
+            }
         }
+        
+        console.error('❌ Impossible de charger la librairie microbit-connection depuis aucun CDN');
+        return false;
     },
     
     /**
@@ -286,8 +295,24 @@ const WebUSBFlasher = {
 // Export pour utilisation globale
 window.WebUSBFlasher = WebUSBFlasher;
 
-// Vérifier le support au chargement
+// Vérifier le support au chargement et precharger la librairie
 document.addEventListener('DOMContentLoaded', () => {
     const support = WebUSBFlasher.getSupportInfo();
     console.log(`🔌 WebUSB: ${support.message} (${support.browser})`);
+    
+    if (support.supported) {
+        const btn = document.getElementById('btnDownloadHex');
+        if (btn) {
+            const span = btn.querySelector('span');
+            if (span) {
+                span.textContent = 'Téléverser / Télécharger';
+            }
+            btn.title = 'Téléverser sur le micro:bit (WebUSB) ou télécharger le fichier';
+        }
+        // Precharger la librairie en arriere-plan pour eviter le delai async au moment du clic
+        WebUSBFlasher.loadLibrary().then(ok => {
+            if (ok) console.log('🔌 Librairie WebUSB pré-chargée');
+            else console.warn('🔌 Pré-chargement librairie WebUSB échoué (sera retentée au clic)');
+        });
+    }
 });

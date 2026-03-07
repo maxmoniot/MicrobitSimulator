@@ -192,10 +192,13 @@ class HexGenerator {
             });
             
             // BASIC MICRO:BIT
+            c = c.replace(/await __pauseSeconds\(([^)]+)\);?/g, 'sleep(int($1 * 1000))');
             c = c.replace(/await __pause\(([^)]+)\);?/g, 'sleep($1)');
-            // Cas spécial: showNumber(rfidGetId()) - ne pas afficher si ID=0
-            // Note: Blockly peut ajouter des parenthèses supplémentaires
+            // Cas speciaux RFID: ne pas afficher si vide/zero (avant les patterns generiques)
             c = c.replace(/await __mbShowNumber\(\(?__rfidGetId\(\)\)?\);?/g, '_rfid_id = rfid.getID();\nif (_rfid_id != 0) {\ndisplay.scroll(_rfid_id);\n}');
+            c = c.replace(/await __mbShowString\(\(?__rfidRead\(\)\)?\);?/g, '_rfid_data = rfid.read();\nif (_rfid_data) {\ndisplay.scroll(_rfid_data);\n}');
+            c = c.replace(/await __mbShowNumber\(\(?__rfidRead\(\)\)?\);?/g, '_rfid_data = rfid.read();\nif (_rfid_data) {\ndisplay.scroll(_rfid_data);\n}');
+            c = c.replace(/await __mbShowString\(\(?__rfidGetId\(\)\)?\);?/g, '_rfid_id = rfid.getID();\nif (_rfid_id != 0) {\ndisplay.scroll(str(_rfid_id));\n}');
             c = c.replace(/await __mbShowNumber\(([^)]+)\);?/g, 'display.scroll($1)');
             c = c.replace(/__mbShowIcon\("([^"]+)"\);?/g, (m, icon) => `display.show(${iconMap[icon] || 'Image.HEART'})`);
             c = c.replace(/__mbShowLeds\(`([^`]+)`\);?/g, (m, pattern) => {
@@ -228,7 +231,7 @@ class HexGenerator {
             c = c.replace(/__mbUnplot\(([^,]+),\s*([^)]+)\);?/g, 'display.set_pixel($1, $2, 0)');
             c = c.replace(/__mbToggle\(([^,]+),\s*([^)]+)\);?/g, 'display.set_pixel($1, $2, 0 if display.get_pixel($1, $2) else 9)');
             c = c.replace(/__mbPoint\(([^,]+),\s*([^)]+)\)/g, 'display.get_pixel($1, $2)');
-            c = c.replace(/__mbSetBrightness\(([^)]+)\);?/g, 'pass  # brightness non supporté');
+            c = c.replace(/__mbSetBrightness\(([^)]+)\);?/g, 'pass  # brightness non supporte');
             c = c.replace(/__mbStopAnimation\(\);?/g, 'display.clear()');
             
             // MUSIC
@@ -237,6 +240,11 @@ class HexGenerator {
             c = c.replace(/await __mbRest\(([^)]+)\);?/g, 'sleep($1)');
             c = c.replace(/__mbStopAllSounds\(\);?/g, 'music.stop()');
             c = c.replace(/__mbSetTempo\(([^)]+)\);?/g, 'music.set_tempo(bpm=int($1))');
+            
+            // Sons integres (V2) - audio.play(Sound.NAME)
+            c = c.replace(/await __mbPlaySoundEffect\("([^"]+)"\);?/g, (m, name) => {
+                return 'audio.play(Sound.' + name.toUpperCase() + ')';
+            });
             
             // RADIO
             c = c.replace(/__mbRadioSetGroup\(([^)]+)\);?/g, 'radio.config(group=$1)\nradio.on()');
@@ -331,7 +339,7 @@ class HexGenerator {
             // stop: met à 0 pour arrêter le signal PWM
             c = c.replace(/__servoStop\("P(\d+)"\);?/g, 'pin$1.write_analog(0)');
             // setRange: pas d'équivalent direct en MicroPython, on ajoute un commentaire
-            c = c.replace(/__servoSetRange\("P(\d+)",\s*([^,]+),\s*([^)]+)\);?/g, '# servo P$1: range $2-$3 (géré par le code)');
+            c = c.replace(/__servoSetRange\("P(\d+)",\s*([^,]+),\s*([^)]+)\);?/g, '# servo P$1: range $2-$3');
             // setStopMode: pas d'équivalent direct
             c = c.replace(/__servoSetStopMode\("P(\d+)",\s*([^)]+)\);?/g, '# servo P$1: stopOnNeutral = $2');
             // setPulse: convertit µs en valeur analogique (période 20ms = 20000µs, résolution 1024)
@@ -341,7 +349,8 @@ class HexGenerator {
             });
             
             // RFID Extension (Portillon) - Module MFRC522
-            c = c.replace(/__rfidInit\(\);?/g, 'rfid.Init()');
+            // Init() est déjà appelé automatiquement après MFRC522(), donc on le supprime ici
+            c = c.replace(/__rfidInit\(\);?/g, '# RFID deja initialise');
             c = c.replace(/__rfidGetId\(\)/g, 'rfid.getID()');
             c = c.replace(/__rfidRead\(\)/g, 'rfid.read()');
             c = c.replace(/__rfidWrite\(([^)]+)\);?/g, 'rfid.write($1)');
@@ -529,7 +538,7 @@ class HexGenerator {
         }
 
         // ===== Construire le code Python final =====
-        let result = '# Programme généré par Micro:bit Simulator\n';
+        let result = '# Programme genere par Micro:bit Simulator\n';
         result += 'from microbit import *\n';
         
         if (usesCutebot) {
@@ -537,8 +546,13 @@ class HexGenerator {
         }
         
         // Imports additionnels
-        if (code.includes('__mbPlayTone') || code.includes('__mbRingTone')) {
+        if (code.includes('__mbPlayTone') || code.includes('__mbRingTone') || 
+            code.includes('__mbSetTempo') || code.includes('__mbRest') ||
+            code.includes('__mbStopAllSounds')) {
             result += 'import music\n';
+        }
+        if (code.includes('__mbPlaySoundEffect')) {
+            result += 'import audio\n';
         }
         if (code.includes('__mbRadio') || radioNumberEvents.length > 0 || radioStringEvents.length > 0) {
             result += 'import radio\n';
@@ -564,7 +578,7 @@ class HexGenerator {
                 servoPins.add(servoPinMatch[1]);
             }
             if (servoPins.size > 0) {
-                result += '# Initialisation des pins servo (période PWM 20ms)\n';
+                result += '# Initialisation des pins servo (periode PWM 20ms)\n';
                 for (const pin of servoPins) {
                     result += `pin${pin}.set_analog_period(20)\n`;
                 }
@@ -574,9 +588,10 @@ class HexGenerator {
         
         // Initialiser le module RFID si utilisé
         if (usesRFID) {
-            result += '# Module RFID MFRC522 (nécessite la bibliothèque MFRC522.py)\n';
+            result += '# Module RFID MFRC522\n';
             result += 'from MFRC522 import MFRC522\n';
-            result += 'rfid = MFRC522()\n\n';
+            result += 'rfid = MFRC522()\n';
+            result += 'rfid.Init()\n\n';
         }
         
         // Déclarer les variables
@@ -618,7 +633,7 @@ class HexGenerator {
         const hasWhileInForever = foreverCode && /\bwhile\s*\(/.test(foreverCode);
         
         if (hasEvents && hasWhileInForever) {
-            result += '# Fonction pour vérifier les événements (appelée dans les boucles)\n';
+            result += '# Fonction pour verifier les evenements\n';
             result += 'def _check_events():\n';
             
             // Déclarer les variables globales modifiées
@@ -714,7 +729,7 @@ class HexGenerator {
         
         // Code au démarrage
         if (onStartCode) {
-            result += '# Au démarrage\n';
+            result += '# Au demarrage\n';
             const converted = convertToPython(onStartCode);
             if (converted.trim()) {
                 result += converted + '\n\n';
@@ -727,7 +742,7 @@ class HexGenerator {
         
         // Lire l'IR si utilisé
         if (hasIRButtons) {
-            result += '    # Lire la télécommande IR\n';
+            result += '    # Lire la telecommande IR\n';
             result += '    _ir = read_ir()\n';
             result += '    if _ir > 0:\n';
             result += '        ir_code = _ir\n';
@@ -793,7 +808,7 @@ class HexGenerator {
         
         // Ajouter la gestion des messages radio reçus
         if (radioNumberEvents.length > 0 || radioStringEvents.length > 0) {
-            result += `    # Radio - vérifier les messages reçus\n`;
+            result += `    # Radio - verifier les messages recus\n`;
             result += `    _radio_msg = radio.receive()\n`;
             result += `    if _radio_msg is not None:\n`;
             
@@ -846,7 +861,7 @@ class HexGenerator {
         }
         
         // Ajouter un sleep à la fin pour éviter de bloquer le CPU
-        if (!foreverCode || (!foreverCode.includes('__pause') && !foreverCode.includes('sleep'))) {
+        if (!foreverCode || (!foreverCode.includes('__pause') && !foreverCode.includes('__pauseSeconds') && !foreverCode.includes('sleep'))) {
             result += '    sleep(10)\n';
         }
         
@@ -887,30 +902,72 @@ class HexGenerator {
         if (needsMfrc522 && !this.mfrc522Lib) {
             throw new Error('La bibliothèque MFRC522 n\'a pas pu être chargée. Vérifiez votre connexion internet et rechargez la page.');
         }
-        
-        // Créer l'instance MicropythonFsHex avec les deux firmwares
-        const micropythonFs = new window.MicropythonFsHex([
-            { hex: this.v1Hex, boardId: window.microbitBoardId.V1 },
-            { hex: this.v2Hex, boardId: window.microbitBoardId.V2 }
-        ]);
-
-        // Ajouter la bibliothèque Cutebot si disponible et nécessaire
-        if (this.cutebotLib && needsCutebot) {
-            micropythonFs.write('Cutebot.py', this.cutebotLib);
-        }
-        
-        // Ajouter la bibliothèque MFRC522 si disponible et nécessaire
-        if (this.mfrc522Lib && needsMfrc522) {
-            micropythonFs.write('MFRC522.py', this.mfrc522Lib);
+                // Fonction utilitaire : convertir string en Uint8Array ASCII pur
+        function toSafeBytes(str) {
+            const bytes = new Uint8Array(str.length);
+            for (let i = 0; i < str.length; i++) {
+                const c = str.charCodeAt(i);
+                bytes[i] = c < 128 ? c : 63;
+            }
+            return bytes;
         }
 
         // Écrire le programme principal
-        micropythonFs.write('main.py', pythonCode);
-        console.log('Fichiers dans HEX:', micropythonFs.ls());
+        const writePythonAndVerify = (code, attempt = 0) => {
+            const codeToWrite = attempt === 0 ? code : '# ' + ' '.repeat(attempt * 7) + '\n' + code;
+            const codeBytes = toSafeBytes(codeToWrite);
+            
+            // Recréer le filesystem à chaque tentative
+            const fs = new window.MicropythonFsHex([
+                { hex: this.v1Hex, boardId: window.microbitBoardId.V1 },
+                { hex: this.v2Hex, boardId: window.microbitBoardId.V2 }
+            ]);
+            
+            if (this.cutebotLib && needsCutebot) {
+                fs.write('Cutebot.py', toSafeBytes(this.cutebotLib));
+            }
+            if (this.mfrc522Lib && needsMfrc522) {
+                fs.write('MFRC522.py', toSafeBytes(this.mfrc522Lib));
+            }
+            
+            fs.write('main.py', codeBytes);
+            
+            // Générer le HEX
+            const hex = fs.getUniversalHex();
+            
+            // Vérifier l'intégrité en re-parsant le HEX
+            try {
+                const verifyFs = new window.MicropythonFsHex([
+                    { hex: this.v1Hex, boardId: window.microbitBoardId.V1 },
+                    { hex: this.v2Hex, boardId: window.microbitBoardId.V2 }
+                ]);
+                verifyFs.importFilesFromHex(hex, { overwrite: true });
+                const readBack = verifyFs.readBytes('main.py');
+                
+                for (let i = 0; i < codeBytes.length; i++) {
+                    if (i >= readBack.length || readBack[i] !== codeBytes[i]) {
+                        console.error(`HEX CORRUPTION at byte ${i} (attempt ${attempt}): expected 0x${codeBytes[i].toString(16)} got 0x${i < readBack.length ? readBack[i].toString(16) : 'EOF'}`);
+                        if (attempt < 5) {
+                            console.log(`Retrying with padding (attempt ${attempt + 1})...`);
+                            return writePythonAndVerify(code, attempt + 1);
+                        }
+                        console.error('HEX CORRUPTION: giving up after 5 attempts');
+                        return hex;
+                    }
+                }
+                console.log(`HEX INTEGRITY: OK (attempt ${attempt})`);
+            } catch (e) {
+                console.warn('HEX verify failed:', e.message);
+            }
+            
+            return hex;
+        };
+        
+        const hexResult = writePythonAndVerify(pythonCode);
+
         console.log('=== FIN ===');
 
-        // Générer le Universal HEX
-        return micropythonFs.getUniversalHex();
+        return hexResult;
     }
 
     /**
@@ -1014,6 +1071,7 @@ class HexGenerator {
             });
             
             // BASIC
+            c = c.replace(/await __pauseSeconds\(([^)]+)\);?/g, 'basic.pause($1 * 1000)');
             c = c.replace(/await __pause\(([^)]+)\);?/g, 'basic.pause($1)');
             c = c.replace(/await __mbShowNumber\(([^)]+)\);?/g, 'basic.showNumber($1)');
             c = c.replace(/__mbShowIcon\("([^"]+)"\);?/g, 'basic.showIcon(IconNames.$1)');
@@ -1104,7 +1162,8 @@ class HexGenerator {
             c = c.replace(/__servoSetPulse\("P(\d+)",\s*([^)]+)\);?/g, 'servos.P$1.setPulse($2)');
             
             // RFID Extension (Portillon) - API MFRC522.*
-            c = c.replace(/__rfidInit\(\);?/g, 'MFRC522.Init()');
+            // Init() sera ajouté automatiquement en début de programme
+            c = c.replace(/__rfidInit\(\);?/g, '// RFID already initialized');
             c = c.replace(/__rfidGetId\(\)/g, 'MFRC522.getID()');
             c = c.replace(/__rfidRead\(\)/g, 'MFRC522.read()');
             c = c.replace(/__rfidWrite\(([^)]+)\);?/g, 'MFRC522.write($1)');
@@ -1147,6 +1206,12 @@ class HexGenerator {
             result += 'cuteBot.IR_callback(function (code) {\n';
             result += '    IR = code\n';
             result += '})\n';
+        }
+        
+        // Auto-initialiser RFID si utilisé
+        const usesRFIDTS = /__rfidInit|__rfidGetId|__rfidRead|__rfidWrite|__rfidAntennaOff/.test(simCode);
+        if (usesRFIDTS) {
+            result += 'MFRC522.Init()\n';
         }
         
         if (onStartCode) {
@@ -1258,22 +1323,15 @@ async function downloadHexFile(simCode, projectMeta) {
         
         // Vérifier si WebUSB est disponible (Chrome/Edge)
         const webUSBAvailable = window.WebUSBFlasher && window.WebUSBFlasher.checkSupport();
+        console.log('🔌 WebUSB disponible:', webUSBAvailable);
     
         if (webUSBAvailable) {
-            // Vérifier si un micro:bit appairé est connecté (sans interaction utilisateur)
-            const hasMicrobit = await window.WebUSBFlasher.hasPairedMicrobit();
-            
-            if (hasMicrobit) {
-                // micro:bit détecté → tenter le téléversement direct
-                console.log('🔌 micro:bit appairé détecté - téléversement direct');
-                await attemptWebUSBFlash(hexGen, simCode);
-            } else {
-                // Pas de micro:bit appairé → téléchargement classique
-                console.log('📥 Pas de micro:bit appairé - téléchargement du fichier');
-                await performClassicDownload(hexGen, simCode, projectMeta);
-            }
+            // Toujours proposer le choix : televersement ou telechargement
+            showLoading(false);
+            await showWebUSBChoiceDialog(hexGen, simCode, projectMeta);
         } else {
             // Firefox ou autre : téléchargement classique directement
+            console.log('📥 WebUSB non supporté - téléchargement classique');
             await performClassicDownload(hexGen, simCode, projectMeta);
         }
     
@@ -1286,6 +1344,164 @@ async function downloadHexFile(simCode, projectMeta) {
             downloadBtn.style.opacity = '';
         }
     }
+}
+
+/**
+ * Affiche un dialogue proposant l'appairage WebUSB ou le telechargement classique
+ */
+async function showWebUSBChoiceDialog(hexGen, simCode, projectMeta) {
+    return new Promise((resolve) => {
+        const old = document.getElementById('makeCodeModal');
+        if (old) old.remove();
+        
+        const modal = document.createElement('div');
+        modal.id = 'makeCodeModal';
+        modal.className = 'modal show';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 480px;">
+                <div class="modal-header">
+                    <h2>💾 Exporter le programme</h2>
+                    <button class="modal-close" onclick="closeMakeCodeDialog()">&times;</button>
+                </div>
+                <div class="modal-body" style="padding: 24px;">
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        
+                        <button id="btnWebUSBPair" class="btn btn-primary" style="padding: 16px; font-size: 15px; display: flex; align-items: center; gap: 12px; justify-content: center;">
+                            <span style="font-size: 24px;">🔌</span>
+                            <div style="text-align: left;">
+                                <div style="font-weight: 700;">Téléverser sur le micro:bit</div>
+                                <div style="font-size: 12px; opacity: 0.8; font-weight: normal;">Transfert direct via USB (recommandé)</div>
+                            </div>
+                        </button>
+                        
+                        <button id="btnClassicDownload" class="btn btn-outline" style="padding: 16px; font-size: 15px; display: flex; align-items: center; gap: 12px; justify-content: center;">
+                            <span style="font-size: 24px;">📁</span>
+                            <div style="text-align: left;">
+                                <div style="font-weight: 700;">Télécharger le fichier</div>
+                                <div style="font-size: 12px; opacity: 0.7; font-weight: normal;">Fichier .hex à copier manuellement</div>
+                            </div>
+                        </button>
+                        
+                    </div>
+                    
+                    <div id="webusb-choice-status" style="display: none; margin-top: 16px; border-radius: 10px; padding: 12px; font-size: 13px; line-height: 1.6;"></div>
+                    
+                    <div style="margin-top: 16px; background: #dbeafe; border-radius: 10px; padding: 12px; color: #1e40af; font-size: 13px; line-height: 1.6;">
+                        <strong>💡 Téléverser :</strong> Connectez votre micro:bit en USB, puis sélectionnez 
+                        <strong>« BBC micro:bit CMSIS-DAP »</strong> dans la fenêtre qui s'ouvre.
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        function showStatus(msg, isError) {
+            const el = document.getElementById('webusb-choice-status');
+            if (el) {
+                el.style.display = 'block';
+                el.style.background = isError ? '#fee2e2' : '#dbeafe';
+                el.style.color = isError ? '#991b1b' : '#1e40af';
+                el.innerHTML = msg;
+            }
+        }
+        
+        function done() {
+            resolve();
+        }
+        
+        // Bouton televersement WebUSB
+        document.getElementById('btnWebUSBPair').addEventListener('click', async () => {
+            const btn = document.getElementById('btnWebUSBPair');
+            if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+            
+            try {
+                // Etape 1 : Connexion USB (DOIT etre dans le geste utilisateur pour requestDevice)
+                showStatus('🔍 Sélectionnez votre micro:bit dans la fenêtre...', false);
+                console.log('🔌 WebUSB: connexion dans le geste utilisateur...');
+                
+                // Verifier que la librairie est prechargee
+                if (!window.WebUSBFlasher.microbitConnection) {
+                    showStatus('⏳ Chargement de la librairie en cours... Veuillez patienter et réessayer.', false);
+                    await window.WebUSBFlasher.loadLibrary();
+                    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+                    if (!window.WebUSBFlasher.microbitConnection) {
+                        showStatus('❌ Impossible de charger la librairie.<br>Le réseau bloque peut-être esm.sh.<br><br>Utilisez le <strong>téléchargement de fichier</strong>.', true);
+                        return;
+                    }
+                    showStatus('✅ Librairie chargée ! Cliquez à nouveau sur Téléverser.', false);
+                    return;
+                }
+                
+                // connect() appelle requestDevice() en interne - OK car dans le clic
+                const connected = await window.WebUSBFlasher.connect();
+                
+                if (!connected) {
+                    showStatus('Connexion annulée. Réessayez ou téléchargez le fichier.', false);
+                    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+                    return;
+                }
+                
+                console.log('🔌 WebUSB: connecté !');
+                
+                // Etape 2 : Generer le HEX (le geste utilisateur est perdu ici, mais on n'en a plus besoin)
+                showStatus('📦 Génération du programme...', false);
+                hexGen.firmwaresLoaded = false;
+                const hexContent = await hexGen.generateHex(simCode);
+                
+                // Etape 3 : Flasher
+                showStatus('🚀 Téléversement en cours... Ne débranchez pas le micro:bit !', false);
+                closeMakeCodeDialog();
+                showWebUSBProgressDialog();
+                updateWebUSBStatus('flashing', 'Téléversement en cours...');
+                updateWebUSBInfo('Ne débranchez pas le micro:bit');
+                
+                const { createUniversalHexFlashDataSource } = window.WebUSBFlasher.microbitConnection;
+                const flashDataSource = createUniversalHexFlashDataSource(hexContent);
+                
+                await window.WebUSBFlasher.connection.flash(flashDataSource, {
+                    partial: true,
+                    progress: (pct) => {
+                        if (pct !== undefined) updateWebUSBProgress(Math.round(pct));
+                    }
+                });
+                
+                // Deconnecter proprement
+                await window.WebUSBFlasher.disconnect();
+                
+                // Succes !
+                console.log('🔌 WebUSB: flash terminé !');
+                showWebUSBSuccessDialog();
+                
+            } catch (e) {
+                // Deconnecter en cas d'erreur
+                try { await window.WebUSBFlasher.disconnect(); } catch(_) {}
+                
+                if (e.name === 'NotFoundError' || (e.message && e.message.includes('No device selected'))) {
+                    console.log('🔌 WebUSB: annulé par utilisateur');
+                    showStatus('Sélection annulée. Réessayez ou téléchargez le fichier.', false);
+                    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+                    return;
+                }
+                console.error('🔌 WebUSB erreur:', e);
+                closeMakeCodeDialog();
+                // Fallback telechargement
+                await performClassicDownload(hexGen, simCode, projectMeta);
+            }
+            done();
+        });
+        
+        // Bouton telechargement classique
+        document.getElementById('btnClassicDownload').addEventListener('click', async () => {
+            closeMakeCodeDialog();
+            await performClassicDownload(hexGen, simCode, projectMeta);
+            done();
+        });
+        
+        // Fermeture = annulation
+        modal.querySelector('.modal-close').addEventListener('click', () => {
+            done();
+        });
+    });
 }
 
 /**
@@ -1748,8 +1964,8 @@ function downloadMkcdAndShowInstructions(hexGen, simCode, isIRProgram = false) {
     window._currentTsCode = tsCode;
     window._currentPythonCode = pythonCode;
     
-    // Télécharger automatiquement le .mkcd
-    downloadMkcdFile(tsCode);
+    // Télécharger automatiquement le .mkcd avec les metadonnees du projet
+    downloadMkcdFile(tsCode, window._pendingProjectMeta);
     
     // Afficher les instructions (avec message spécial pour IR)
     showMkcdInstructions(tsCode, pythonCode, isIRProgram);
@@ -1758,7 +1974,7 @@ function downloadMkcdAndShowInstructions(hexGen, simCode, isIRProgram = false) {
 /**
  * Télécharge le fichier .mkcd
  */
-function downloadMkcdFile(tsCode) {
+function downloadMkcdFile(tsCode, projectMeta) {
     // Déterminer les dépendances
     const deps = { "core": "*" };
     if (/cuteBot\./.test(tsCode)) {
@@ -1779,6 +1995,11 @@ function downloadMkcdFile(tsCode) {
             "preferredEditor": "tsprj"
         }, null, 4)
     };
+    
+    // Embarquer les metadonnees Blockly pour pouvoir recharger dans le simulateur
+    if (projectMeta) {
+        project["_blockly_project"] = JSON.stringify(projectMeta);
+    }
     
     const blob = new Blob([JSON.stringify(project, null, 2)], { 
         type: 'application/octet-stream' 

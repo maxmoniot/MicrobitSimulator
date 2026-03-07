@@ -664,52 +664,57 @@
         state.running = true;
         state.pending = false;
         
-        // Créer le conteneur d'animation s'il n'existe pas
-        let waveContainer = sourceElement.querySelector('.radio-wifi-container');
-        if (!waveContainer) {
-            waveContainer = document.createElement('div');
-            waveContainer.className = 'radio-wifi-container';
-            sourceElement.style.position = 'relative';
-            sourceElement.appendChild(waveContainer);
-        }
+        const svgEl = sourceElement.querySelector('svg');
+        if (!svgEl) return;
         
-        // Supprimer l'ancienne icône si elle existe
-        const oldIcon = waveContainer.querySelector('.radio-wifi-icon');
-        if (oldIcon) {
-            oldIcon.remove();
-        }
+        const ns = 'http://www.w3.org/2000/svg';
         
-        // Créer une nouvelle icône wifi
-        const wifiIcon = document.createElement('div');
-        wifiIcon.className = 'radio-wifi-icon';
-        wifiIcon.innerHTML = `
-            <div class="wifi-arc wifi-arc-1"></div>
-            <div class="wifi-arc wifi-arc-2"></div>
-            <div class="wifi-arc wifi-arc-3"></div>
-            <div class="wifi-dot"></div>
-        `;
-        waveContainer.appendChild(wifiIcon);
+        // Supprimer l'ancien groupe d'animation
+        const oldGroup = svgEl.querySelector('.radio-wifi-group');
+        if (oldGroup) oldGroup.remove();
         
-        // Annuler le timer précédent s'il existe
-        if (state.timer) {
-            clearTimeout(state.timer);
-        }
+        // Creer un groupe SVG positionne en haut a droite du viewBox (0 0 538.67 434.4)
+        const g = document.createElementNS(ns, 'g');
+        g.setAttribute('class', 'radio-wifi-group');
+        g.setAttribute('transform', 'translate(500, 40)');
         
-        // À la fin de l'animation, vérifier s'il y a des communications en attente
+        // Point central (dot)
+        const dot = document.createElementNS(ns, 'circle');
+        dot.setAttribute('cx', '0');
+        dot.setAttribute('cy', '0');
+        dot.setAttribute('r', '10');
+        dot.setAttribute('fill', '#e3008c');
+        dot.setAttribute('class', 'wifi-svg-dot');
+        g.appendChild(dot);
+        
+        // 3 arcs (quarts de cercle vers haut-droite)
+        const radii = [28, 46, 64];
+        const delays = [0.1, 0.2, 0.3];
+        radii.forEach((r, i) => {
+            const arc = document.createElementNS(ns, 'path');
+            arc.setAttribute('d', `M 0,${-r} A ${r},${r} 0 0,1 ${r},0`);
+            arc.setAttribute('fill', 'none');
+            arc.setAttribute('stroke', '#e3008c');
+            arc.setAttribute('stroke-width', '8');
+            arc.setAttribute('stroke-linecap', 'round');
+            arc.setAttribute('class', `wifi-svg-arc wifi-svg-arc-${i + 1}`);
+            g.appendChild(arc);
+        });
+        
+        svgEl.appendChild(g);
+        
+        if (state.timer) clearTimeout(state.timer);
+        
         state.timer = setTimeout(() => {
             state.running = false;
             
             if (state.pending) {
-                // Relancer l'animation
                 startRadioAnimation(fromCard);
             } else {
-                // Supprimer l'icône
-                if (wifiIcon && wifiIcon.parentNode) {
-                    wifiIcon.remove();
-                }
+                if (g.parentNode) g.remove();
             }
             state.timer = null;
-        }, 1100); // Durée de l'animation complète
+        }, 1100);
     }
 
     // ========== GESTION DES MESSAGES RADIO ==========
