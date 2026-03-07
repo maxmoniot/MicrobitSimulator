@@ -1,109 +1,130 @@
-# 🤖 Cutebot Simulator
+# Micro:bit Simulator
 
-Application de programmation par blocs pour le robot Cutebot avec simulateur visuel intégré.
+Environnement de programmation par blocs pour le micro:bit V2, avec simulateurs visuels intégrés pour plusieurs maquettes pédagogiques : robot Cutebot, double barrière, portillon automatique et module RFID.
 
-## 📁 Structure des fichiers
+Développé pour un usage en classe de technologie au collège. Les élèves programment en blocs (style MakeCode), testent dans le simulateur, puis exportent directement sur le micro:bit réel via USB ou fichier HEX.
+
+## Fonctionnalités principales
+
+**Programmation par blocs** — Éditeur Blockly avec une toolbox organisée par catégories (Base, Entrées, Musique, Radio, LEDs, Logique, Boucles, Variables, Maths, Moteurs, Capteurs, Servo, IR, RFID). Les blocs sont visuellement proches de MakeCode pour faciliter la transition.
+
+**Simulateur micro:bit** — Carte micro:bit V2 interactive avec matrice LED 5×5, boutons A/B, capteurs (température, luminosité, boussole, son, accéléromètre, force magnétique), haut-parleur et broche tactile.
+
+**Simulateur Cutebot** — Robot mobile avec moteurs indépendants, capteurs de suivi de ligne, capteur ultrason, LEDs RGB et servomoteurs. Canvas de simulation avec dessin de pistes.
+
+**Simulateur Double Barrière** — Maquette de parking avec deux barrières motorisées, capteurs de présence et engrenages animés.
+
+**Simulateur Portillon** — Portillon automatique avec servomoteur, badge RFID et capteur de passage.
+
+**Module RFID (MFRC522)** — Lecture/écriture de badges RFID en simulation et sur matériel réel. Bibliothèque MicroPython compatible avec le module MFRC522 connecté en SPI.
+
+**Système radio** — Communication entre deux cartes micro:bit simulées. La carte 2 (distante) peut être programmée indépendamment ou dupliquer la carte 1.
+
+**Télécommande IR** — Support des télécommandes infrarouges (IRC389 et autres) pour le pilotage du Cutebot.
+
+**Export multi-format** — Génération de fichier HEX universel (V1+V2) avec MicroPython, téléversement direct via WebUSB (Chrome/Edge), ou export .mkcd pour MakeCode.
+
+**Correction automatique** — Page dédiée (correction.html) pour comparer le programme d'un élève à une référence, avec système de notation par critères.
+
+## Structure du projet
 
 ```
-cutebot-simulator/
-├── index.html          # Page principale
+microbit-simulator/
+├── index.html                 # Application principale
+├── correction.html            # Outil de correction enseignant
 ├── css/
-│   └── styles.css      # Styles de l'application
+│   ├── styles.css             # Styles généraux
+│   ├── simulator-panels.css   # Styles des panneaux simulateurs
+│   ├── microbit-styles.css    # Styles spécifiques micro:bit
+│   ├── custom-toolbox.css     # Toolbox Blockly personnalisée
+│   └── ...
 ├── js/
-│   ├── cutebot-blocks.js    # Définition des blocs Blockly
-│   ├── cutebot-simulator.js # Simulateur du robot
-│   ├── hex-generator.js     # Générateur de fichier HEX
-│   └── app.js               # Application principale
-└── README.md           # Ce fichier
+│   ├── app.js                 # Application principale, gestion des cartes, sauvegarde/chargement
+│   ├── cutebot-blocks.js      # Définition de tous les blocs Blockly + générateurs de code
+│   ├── microbit-simulator.js  # Simulateur de la carte micro:bit (SVG, LEDs, capteurs)
+│   ├── microbit-runtime.js    # Runtime d'exécution (fonctions __mb* appelées par le code généré)
+│   ├── cutebot-simulator.js   # Simulateur du robot Cutebot (canvas, moteurs, capteurs)
+│   ├── barrier-simulator.js   # Simulateur double barrière
+│   ├── portillon-simulator.js # Simulateur portillon automatique
+│   ├── radio-simulator.js     # Système radio et gestion de la carte 2
+│   ├── simulator-panels.js    # Gestion des panneaux redimensionnables
+│   ├── hex-generator.js       # Génération HEX, export mkcd, dialogues WebUSB
+│   ├── webusb-flasher.js      # Téléversement WebUSB via @microbit/microbit-connection
+│   ├── ir-remote-config.js    # Configuration des télécommandes IR
+│   ├── rfid-blocks.js         # Blocs RFID
+│   ├── servo-blocks.js        # Blocs servo
+│   ├── microbit-blocks-basic.js       # Blocs micro:bit de base
+│   ├── microbit-blocks-music-radio.js # Blocs musique et radio
+│   ├── field-led-matrix.js    # Champ personnalisé matrice LED 5×5
+│   ├── field-color-dropdown.js # Sélecteur de couleur pour LEDs
+│   ├── microbit-fs-bundle.js  # Librairie @microbit/microbit-fs (filesystem HEX)
+│   ├── blockly.min.js         # Blockly (Google)
+│   └── ...
+├── firmware/
+│   ├── micropython-v1.hex     # Firmware MicroPython micro:bit V1
+│   ├── micropython-v2.hex     # Firmware MicroPython micro:bit V2
+│   ├── Cutebot.py             # Librairie MicroPython Cutebot
+│   └── MFRC522.py             # Librairie MicroPython RFID MFRC522
+├── images/
+│   ├── Microbit.svg           # SVG de la carte micro:bit
+│   ├── Portillon.svg          # SVG du portillon
+│   ├── ModuleRFID.svg         # SVG du module RFID
+│   └── ...
+└── README.md
 ```
 
-## 🚀 Installation avec XAMPP
+## Installation
 
-1. **Copiez le dossier** `cutebot-simulator` dans `C:\xampp\htdocs\`
+L'application est entièrement côté client (HTML/CSS/JS). Aucun serveur applicatif n'est nécessaire.
 
-2. **Démarrez Apache** dans le panneau de contrôle XAMPP
+Placez le dossier sur un serveur web (Apache, Nginx, ou tout hébergement statique) et ouvrez `index.html` dans un navigateur. L'application fonctionne aussi en local via `file://` pour la plupart des fonctionnalités, sauf WebUSB qui nécessite HTTPS ou localhost.
 
-3. **Ouvrez votre navigateur** : `http://localhost/cutebot-simulator/`
+## Utilisation
 
-## 🎮 Utilisation
+### Programmation
 
-### Éditeur de blocs (gauche)
-- Glissez-déposez les blocs depuis la boîte à outils
-- Les catégories contiennent tous les blocs Cutebot
+L'éditeur de blocs occupe la partie gauche. La toolbox à gauche contient les catégories de blocs. Glissez-déposez les blocs pour construire votre programme. Le bloc « au démarrage » s'exécute une fois, le bloc « toujours » tourne en boucle.
 
-### Simulateur (droite)
-- **Déplacer le robot** : Cliquez et glissez
-- **Tourner le robot** : Shift + clic et glissez
-- **Dessiner une ligne** : Cliquez sur "✏️ Ligne" puis dessinez
-- **Effacer** : Cliquez sur "🧹 Effacer"
-- **Largeur de trait** : Ajustez avec le curseur (18-20px recommandé)
+Le bloc **pause** est en secondes (pas en millisecondes). Les élèves peuvent utiliser la virgule française : `0,5` est accepté pour une demi-seconde.
 
-### Boutons
-| Bouton | Action |
-|--------|--------|
-| ▶ Exécuter | Lance le programme |
-| ⏹ Arrêter | Stoppe l'exécution |
-| ↺ Réinitialiser | Remet le robot à zéro |
-| Voir le code | Affiche le TypeScript |
-| Télécharger HEX | Génère le fichier pour micro:bit |
+### Simulateurs
 
-## 📦 Blocs disponibles
+Les simulateurs occupent la partie droite, dans des panneaux redimensionnables et réorganisables par glisser-déposer. Chaque panneau peut être réduit ou agrandi. Le séparateur vertical entre l'éditeur et les simulateurs se déplace par glisser (double-clic pour réinitialiser).
 
-### 🚗 Moteurs
-- Vitesse roue gauche/droite (-100 à 100%)
-- Avancer/reculer pendant X secondes
-- Avancer/reculer pleine vitesse
-- Tourner gauche/droite
-- Arrêter
+Les panneaux de simulateurs s'ouvrent automatiquement en fonction des blocs utilisés dans le programme. Par exemple, utiliser un bloc moteur ouvre le simulateur Cutebot.
 
-### 💡 LEDs
-- Couleur avec sélecteur
-- Couleur RGB (0-255)
-- Éteindre
+### Système deux cartes
 
-### 📏 Capteurs
-- État des capteurs de ligne (● ● / ◌ ● / ● ◌ / ◌ ◌)
-- Capteur gauche/droit trouve/perd ligne
-- Distance ultrason (cm ou pouces)
+Pour les projets radio, une deuxième carte micro:bit est disponible dans le panneau Radio. Par défaut elle duplique le programme de la carte 1. Décochez « Dupliquer le programme de la carte principale » pour la programmer indépendamment. Le passage entre les cartes se fait via les boutons en haut de l'éditeur.
 
-### 📡 Événements
-- Quand capteur trouve/perd ligne
-- Quand signal IR reçu
-- Bouton IR pressé
+### Export vers le micro:bit réel
 
-### ⚙️ Servo
-- Angle servo S1/S2 (0-180°)
+Cliquez sur le bouton de téléchargement en haut de l'éditeur.
 
-## 📥 Obtenir le fichier HEX
+Sur **Chrome ou Edge**, un dialogue propose deux options : téléverser directement via USB (WebUSB) ou télécharger le fichier HEX. Pour le téléversement direct, connectez le micro:bit en USB et sélectionnez « BBC micro:bit CMSIS-DAP » dans la fenêtre du navigateur.
 
-1. Cliquez sur **"Télécharger HEX"**
-2. Un fichier `cutebot-program.mkcd` est téléchargé
-3. Ouvrez [makecode.microbit.org](https://makecode.microbit.org)
-4. Cliquez sur **"Importer"** → **"Importer un fichier..."**
-5. Sélectionnez le fichier `.mkcd`
-6. Cliquez sur **"Télécharger"** pour obtenir le `.hex`
-7. Copiez le fichier `.hex` sur le micro:bit
+Sur **Firefox** ou autres navigateurs, le fichier HEX est téléchargé automatiquement. Copiez-le sur le lecteur MICROBIT qui apparaît quand le micro:bit est branché.
 
-## 💡 Conseils
+Les programmes utilisant la **télécommande IR** sont exportés en fichier `.mkcd` (incompatible HEX MicroPython). Ce fichier s'importe dans MakeCode (makecode.microbit.org → Importer → Importer un fichier).
 
-- **Ligne de suivi** : Tracez des lignes noires de 15-20 pixels d'épaisseur
-- **Capteurs** : Les deux capteurs sont très rapprochés (comme le vrai robot)
-- **Testez** toujours dans le simulateur avant de transférer sur le micro:bit
+### Sauvegarde et chargement
 
-## 🐛 Dépannage
+Le bouton « Charger » accepte les formats `.xml`, `.json`, `.hex` et `.mkcd`. Les fichiers HEX et mkcd exportés par l'application embarquent les données Blockly et peuvent être rechargés ultérieurement.
 
-### Le simulateur ne démarre pas
-- Vérifiez la console (F12) pour les erreurs
-- Rafraîchissez la page
+### Correction
 
-### Les capteurs ne détectent pas la ligne
-- Augmentez l'épaisseur de la ligne
-- La ligne doit être bien noire
+La page `correction.html` permet à l'enseignant de comparer le programme d'un élève à une référence. Elle charge deux fichiers XML/HEX et évalue la correspondance par critères configurables.
 
-### Le fichier HEX ne fonctionne pas
-- Vérifiez que vous avez importé le `.mkcd` dans MakeCode
-- L'extension Cutebot doit être automatiquement ajoutée
+## Notes techniques
 
----
+Le code généré par les blocs est du JavaScript exécuté dans le navigateur via `eval()`. Les fonctions préfixées `__mb` et `__` servent de pont entre le code généré et les simulateurs.
 
-© 2025 - Application éducative pour le robot Cutebot (ELECFREAKS)
+Pour l'export matériel, le JavaScript est converti en MicroPython (via des regex dans `hex-generator.js`) puis intégré dans un fichier HEX universel grâce à la librairie `@microbit/microbit-fs`. Les firmwares MicroPython V1 et V2 sont embarqués dans le dossier `firmware/`.
+
+Le module RFID utilise le protocole SPI (mode 0, 1MHz) sur les broches P13-P16. La bibliothèque `MFRC522.py` est un portage fidèle de l'extension MakeCode `pxt-rfid-mfrc522` de Joy-IT, compatible avec les blocs RFID du simulateur.
+
+## Licence
+
+Application éducative développée pour l'enseignement de la technologie au collège.
+
+© 2025-2026
