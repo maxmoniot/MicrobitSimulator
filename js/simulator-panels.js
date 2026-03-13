@@ -22,6 +22,9 @@ class SimulatorPanelsManager {
         // Garder une trace des panneaux déjà configurés pour éviter les doublons
         this.configuredPanels = new WeakSet();
         
+        // Panneaux fermés manuellement par l'utilisateur (ne pas les réouvrir automatiquement)
+        this._userClosedPanels = new Set();
+        
         this.init();
     }
     
@@ -288,7 +291,7 @@ class SimulatorPanelsManager {
         }
     }
     
-    togglePanel(panel) {
+    togglePanel(panel, isAuto = false) {
         const content = panel.querySelector('.sim-panel-content');
         const collapseBtn = panel.querySelector('.collapse-btn');
         const resizeHandle = panel.querySelector('.sim-panel-resize');
@@ -314,6 +317,12 @@ class SimulatorPanelsManager {
             panel.classList.add('collapsed');
             if (collapseBtn) collapseBtn.classList.add('collapsed');
             if (resizeHandle) resizeHandle.style.display = 'none';
+            
+            // Marquer comme ferme manuellement par l'utilisateur
+            if (!isAuto) {
+                const panelId = panel.dataset.id;
+                if (panelId) this._userClosedPanels.add(panelId);
+            }
             
             // Hauteur minimale (juste le header)
             panel.style.flex = '0 0 auto';
@@ -395,6 +404,31 @@ class SimulatorPanelsManager {
                 }
             }
         });
+    }
+    
+    /**
+     * Ouvre un panneau automatiquement, sauf si l'utilisateur l'a ferme manuellement
+     * @param {string} panelId - ID du panneau (cutebot, barrier, portillon)
+     * @returns {boolean} true si le panneau a ete ouvert
+     */
+    autoOpenPanel(panelId) {
+        if (this._userClosedPanels.has(panelId)) return false;
+        
+        const panel = this.getPanel(panelId);
+        if (!panel) return false;
+        
+        if (panel.classList.contains('collapsed')) {
+            this.togglePanel(panel, true);
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Reinitialise le suivi des fermetures utilisateur (lors du chargement d'un projet)
+     */
+    clearUserClosedPanels() {
+        this._userClosedPanels.clear();
     }
     
     distributeSpace() {

@@ -169,8 +169,8 @@ class CustomToolbox {
                         this.dragState.lastMouseY >= toolboxRect.top && 
                         this.dragState.lastMouseY <= toolboxRect.bottom) {
                         
-                        // Supprimer le bloc
-                        this.dragState.draggedBlock.dispose(true, true);
+                        // Supprimer le bloc et tous les blocs attachés en dessous
+                        this.dragState.draggedBlock.dispose(false);
                     }
                 }
                 

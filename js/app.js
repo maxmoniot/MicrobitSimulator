@@ -562,6 +562,21 @@ function initBlockly() {
                 e.type === Blockly.Events.BLOCK_MOVE)) {
                 updateCard2ButtonVisibility();
             }
+            
+            // Auto-ouvrir le simulateur correspondant quand on pose un bloc
+            if (e.type === Blockly.Events.BLOCK_CREATE && window.simulatorPanels) {
+                const block = workspace.getBlockById(e.blockId);
+                if (block) {
+                    const type = block.type;
+                    if (type.startsWith('cutebot_') && type !== 'cutebot_if') {
+                        window.simulatorPanels.autoOpenPanel('cutebot');
+                    } else if (type.startsWith('barrier_') || (type.startsWith('servo_') && !type.startsWith('portillon_'))) {
+                        window.simulatorPanels.autoOpenPanel('barrier');
+                    } else if (type.startsWith('portillon_') || type.startsWith('rfid_')) {
+                        window.simulatorPanels.autoOpenPanel('portillon');
+                    }
+                }
+            }
         }
     });
 
@@ -1983,62 +1998,46 @@ function openRequiredPanelsAndRun() {
     let needsBarrier = false;
     let needsPortillon = false;
     
+    // Reinitialiser le suivi des fermetures utilisateur (chargement de projet)
+    if (simulatorPanels) simulatorPanels.clearUserClosedPanels();
+    
     // Détecter les types de blocs utilisés
-    // Utiliser uniquement les préfixes exacts pour éviter les faux positifs
     for (const block of allBlocks) {
         const type = block.type;
-        
-        // Cutebot : tous les blocs commencent par 'cutebot_'
-        // SAUF cutebot_if qui est un bloc logique générique mal nommé
-        if (type.startsWith('cutebot_') && type !== 'cutebot_if') {
-            needsCutebot = true;
-        }
-        
-        // Barrière : blocs 'barrier_' OU blocs 'servo_' (section double barrière)
-        // Les blocs servo_ de la section barrière ne commencent PAS par 'portillon_'
-        if (type.startsWith('barrier_') || (type.startsWith('servo_') && !type.startsWith('portillon_'))) {
-            needsBarrier = true;
-        }
-        
-        // Portillon/RFID : blocs 'portillon_' (inclut portillon_servo_*) ou 'rfid_'
-        if (type.startsWith('portillon_') || type.startsWith('rfid_')) {
-            needsPortillon = true;
-        }
+        if (type.startsWith('cutebot_') && type !== 'cutebot_if') needsCutebot = true;
+        if (type.startsWith('barrier_') || (type.startsWith('servo_') && !type.startsWith('portillon_'))) needsBarrier = true;
+        if (type.startsWith('portillon_') || type.startsWith('rfid_')) needsPortillon = true;
     }
     
-    // Ouvrir/fermer les panneaux selon les besoins
-    // Le panneau micro:bit reste toujours ouvert
+    // Ouvrir/fermer les panneaux selon les besoins (mode auto)
     if (simulatorPanels) {
-        // Cutebot
         const cutebotPanel = simulatorPanels.getPanel('cutebot');
         if (cutebotPanel) {
             const isCollapsed = cutebotPanel.classList.contains('collapsed');
             if (needsCutebot && isCollapsed) {
-                simulatorPanels.togglePanel(cutebotPanel);
+                simulatorPanels.togglePanel(cutebotPanel, true);
             } else if (!needsCutebot && !isCollapsed) {
-                simulatorPanels.togglePanel(cutebotPanel);
+                simulatorPanels.togglePanel(cutebotPanel, true);
             }
         }
         
-        // Barrière
         const barrierPanel = simulatorPanels.getPanel('barrier');
         if (barrierPanel) {
             const isCollapsed = barrierPanel.classList.contains('collapsed');
             if (needsBarrier && isCollapsed) {
-                simulatorPanels.togglePanel(barrierPanel);
+                simulatorPanels.togglePanel(barrierPanel, true);
             } else if (!needsBarrier && !isCollapsed) {
-                simulatorPanels.togglePanel(barrierPanel);
+                simulatorPanels.togglePanel(barrierPanel, true);
             }
         }
         
-        // Portillon
         const portillonPanel = simulatorPanels.getPanel('portillon');
         if (portillonPanel) {
             const isCollapsed = portillonPanel.classList.contains('collapsed');
             if (needsPortillon && isCollapsed) {
-                simulatorPanels.togglePanel(portillonPanel);
+                simulatorPanels.togglePanel(portillonPanel, true);
             } else if (!needsPortillon && !isCollapsed) {
-                simulatorPanels.togglePanel(portillonPanel);
+                simulatorPanels.togglePanel(portillonPanel, true);
             }
         }
     }
