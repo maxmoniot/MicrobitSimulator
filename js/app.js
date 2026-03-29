@@ -2475,6 +2475,34 @@ function initDynamicControls() {
     
     // État actuel des contrôles visibles
     let visibleControls = new Set();
+    let radioVisibleControls = new Set();
+    
+    // Calcule les contrôles visibles à partir d'un XML Blockly (sans workspace Blockly)
+    function computeVisibleControlsFromXmlString(xmlString) {
+        if (!xmlString) return new Set();
+        const visible = new Set();
+        try {
+            const doc = new DOMParser().parseFromString(xmlString, 'text/xml');
+            doc.querySelectorAll('block').forEach(block => {
+                const type = block.getAttribute('type');
+                if (!type) return;
+                if (blockToControl[type]) {
+                    blockToControl[type].forEach(c => visible.add(c));
+                }
+                if (type === 'input_on_gesture') {
+                    const field = block.querySelector('field[name="GESTURE"]');
+                    if (field && gestureToControl[field.textContent]) {
+                        visible.add(gestureToControl[field.textContent]);
+                    }
+                }
+                if (type === 'input_on_button_pressed' || type === 'input_button_is_pressed') {
+                    const field = block.querySelector('field[name="BUTTON"]');
+                    if (field && field.textContent === 'AB') visible.add('buttonAB');
+                }
+            });
+        } catch (e) {}
+        return visible;
+    }
     
     // Fonction pour scanner le workspace et déterminer les contrôles à afficher
     function updateVisibleControls() {
@@ -2516,6 +2544,25 @@ function initDynamicControls() {
             visibleControls = newVisibleControls;
             applyControlVisibility(newVisibleControls);
         }
+        
+        // Mettre à jour les contrôles du panneau radio (carte distante)
+        if (window.radioSimulator && window.radioSimulator.isEnabled()) {
+            let card2VisibleControls;
+            if (currentCard === 2) {
+                // On édite la carte 2 : scanner le workspace directement
+                card2VisibleControls = new Set(newVisibleControls);
+            } else if (card2DuplicateFromCard1) {
+                // Carte 2 = copie de carte 1
+                card2VisibleControls = new Set(newVisibleControls);
+            } else {
+                // Carte 2 a son propre programme : parser son XML
+                card2VisibleControls = computeVisibleControlsFromXmlString(card2Xml);
+            }
+            if (!setsEqual(radioVisibleControls, card2VisibleControls)) {
+                radioVisibleControls = card2VisibleControls;
+                applyRadioControlVisibility(card2VisibleControls);
+            }
+        }
     }
     
     // Comparer deux Sets
@@ -2529,7 +2576,7 @@ function initDynamicControls() {
     
     // Appliquer la visibilité des contrôles
     function applyControlVisibility(visible) {
-        const allControls = document.querySelectorAll('.control-item[data-control]');
+        const allControls = document.querySelectorAll('.sim-panel[data-id="microbit"] .control-item[data-control]');
         
         allControls.forEach(control => {
             const controlName = control.dataset.control;
@@ -2548,9 +2595,26 @@ function initDynamicControls() {
         });
     }
     
+    // Appliquer la visibilité des contrôles du panneau radio
+    function applyRadioControlVisibility(visible) {
+        const allControls = document.querySelectorAll('.radio-control-item[data-control]');
+        allControls.forEach(control => {
+            const controlName = control.dataset.control;
+            const shouldBeVisible = visible.has(controlName);
+            const isCurrentlyHidden = control.classList.contains('hidden');
+            if (shouldBeVisible && isCurrentlyHidden) {
+                control.classList.remove('hidden');
+                control.classList.add('appearing');
+                setTimeout(() => control.classList.remove('appearing'), 300);
+            } else if (!shouldBeVisible && !isCurrentlyHidden) {
+                control.classList.add('hidden');
+            }
+        });
+    }
+    
     // Cacher tous les contrôles au démarrage
     function hideAllControls() {
-        const allControls = document.querySelectorAll('.control-item[data-control]');
+        const allControls = document.querySelectorAll('.sim-panel[data-id="microbit"] .control-item[data-control]');
         allControls.forEach(control => {
             control.classList.add('hidden');
         });

@@ -80,22 +80,22 @@
                         <div class="controls-left-column">
                             <!-- Curseurs -->
                             <div class="controls-row">
-                                <div class="v-slider-group">
+                                <div class="v-slider-group control-item radio-control-item hidden" data-control="temperature">
                                     <label>🌡️</label>
                                     <input type="range" id="radio-tempSlider" min="-5" max="50" value="21">
                                     <span class="v-slider-val" id="radio-tempValue">21°C</span>
                                 </div>
-                                <div class="v-slider-group">
+                                <div class="v-slider-group control-item radio-control-item hidden" data-control="light">
                                     <label>💡</label>
                                     <input type="range" id="radio-lightSlider" min="0" max="255" value="128">
                                     <span class="v-slider-val" id="radio-lightValue">128</span>
                                 </div>
-                                <div class="v-slider-group">
+                                <div class="v-slider-group control-item radio-control-item hidden" data-control="compass">
                                     <label>🧭</label>
                                     <input type="range" id="radio-compassSlider" min="0" max="359" value="0">
                                     <span class="v-slider-val" id="radio-compassValue">0°</span>
                                 </div>
-                                <div class="v-slider-group">
+                                <div class="v-slider-group control-item radio-control-item hidden" data-control="sound">
                                     <label>🎤</label>
                                     <input type="range" id="radio-soundSlider" min="0" max="255" value="0">
                                     <span class="v-slider-val" id="radio-soundValue">0</span>
@@ -104,13 +104,13 @@
                             
                             <!-- Pads -->
                             <div class="controls-row pads-row">
-                                <div class="mb-btn-group accel-btn-group">
+                                <div class="mb-btn-group accel-btn-group control-item radio-control-item hidden" data-control="accelerometer">
                                     <button class="mb-btn" id="radio-btnAccel" title="Accéléromètre">
                                         <span style="font-size: 18px;">📐</span>
                                     </button>
                                     <span class="mb-btn-label">Accél.</span>
                                 </div>
-                                <div class="rotation-group">
+                                <div class="rotation-group control-item radio-control-item hidden" data-control="rotation">
                                     <label>🔄</label>
                                     <div class="rotation-pad" id="radio-rotationPad">
                                         <div class="rotation-dot" id="radio-rotationDot"></div>
@@ -122,7 +122,7 @@
                         
                         <!-- Boutons -->
                         <div class="controls-right-column">
-                            <div class="mb-btn-group">
+                            <div class="mb-btn-group control-item radio-control-item hidden" data-control="shake">
                                 <button class="mb-btn" id="radio-btnShake" title="Secouer">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
                                         <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
@@ -131,13 +131,13 @@
                                 </button>
                                 <span class="mb-btn-label">Secouer</span>
                             </div>
-                            <div class="mb-btn-group">
+                            <div class="mb-btn-group control-item radio-control-item hidden" data-control="buttonAB">
                                 <button class="mb-btn" id="radio-btnAB" title="A+B">
                                     <span style="font-size: 10px; font-weight: bold; color: white;">A+B</span>
                                 </button>
                                 <span class="mb-btn-label">A+B</span>
                             </div>
-                            <div class="mb-btn-group">
+                            <div class="mb-btn-group control-item radio-control-item hidden" data-control="screen">
                                 <button class="mb-btn" id="radio-btnRotate180" title="Rotation 180°">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
                                         <path d="M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.59-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c2.84.48 5 2.94 5 5.91s-2.16 5.43-5 5.91v2.02c3.95-.49 7-3.85 7-7.93s-3.05-7.44-7-7.93z"/>
@@ -145,7 +145,7 @@
                                 </button>
                                 <span class="mb-btn-label">180°</span>
                             </div>
-                            <div class="mb-btn-group">
+                            <div class="mb-btn-group control-item radio-control-item hidden" data-control="logo">
                                 <button class="mb-btn" id="radio-btnFlip" title="Retourner">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
                                         <path d="M15 21h2v-2h-2v2zm4-12h2V7h-2v2zM3 5v14c0 1.1.9 2 2 2h4v-2H5V5h4V3H5c-1.1 0-2 .9-2 2zm16-2v2h2c0-1.1-.9-2-2-2zm-8 20h2V1h-2v22zm8-6h2v-2h-2v2zM15 5h2V3h-2v2zm4 8h2v-2h-2v2zm0 8c1.1 0 2-.9 2-2h-2v2z"/>
@@ -537,6 +537,10 @@
             requestAnimationFrame(() => {
                 if (window.simulatorPanels) {
                     window.simulatorPanels.registerPanel(panel);
+                }
+                // Mettre à jour les boutons dynamiques du panneau radio
+                if (window.updateSimulatorControls) {
+                    window.updateSimulatorControls();
                 }
             });
         }
