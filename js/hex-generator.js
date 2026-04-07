@@ -362,6 +362,12 @@ class HexGenerator {
                 return irCode !== undefined ? `(ir_code == ${irCode})` : 'False';
             });
             
+            // Nombre aléatoire: mathRandomInt(a, b) -> random.randint(a, b)
+            // Supprimer la définition helper de mathRandomInt générée par Blockly
+            c = c.replace(/function mathRandomInt\(a,\s*b\)\s*\{[\s\S]*?\n\}\n/g, '');
+            // Remplacer les appels
+            c = c.replace(/mathRandomInt\(([^,]+),\s*([^)]+)\)/g, 'random.randint(int($1), int($2))');
+
             // ===== ÉTAPE 2: Convertir les opérateurs logiques =====
             c = c.replace(/\btrue\b/g, 'True');
             c = c.replace(/\bfalse\b/g, 'False');
@@ -559,6 +565,9 @@ class HexGenerator {
         }
         if (code.includes('__mbRotation')) {
             result += 'import math\n';
+        }
+        if (code.includes('mathRandomInt')) {
+            result += 'import random\n';
         }
         
         result += '\n';
