@@ -23,7 +23,17 @@
     };
 
     // ============== BLOC IF PERSONNALISÉ (style MakeCode) ==============
-    
+
+    // Icônes + / - (SVG inline encodé en base64 au chargement)
+    const IF_PLUS_ICON = 'data:image/svg+xml;base64,' + btoa(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">' +
+        '<path fill="#fff" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>'
+    );
+    const IF_MINUS_ICON = 'data:image/svg+xml;base64,' + btoa(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">' +
+        '<path fill="#fff" d="M19 13H5v-2h14v2z"/></svg>'
+    );
+
     Blockly.Blocks['cutebot_if'] = {
         init: function() {
             this.setColour('#14b8a6');
@@ -39,20 +49,35 @@
             this.elseCount_ = 0;
             this.updateShape_();
         },
-        
+
         mutationToDom: function() {
             const container = document.createElement('mutation');
             container.setAttribute('elseif', this.elseifCount_);
             container.setAttribute('else', this.elseCount_);
             return container;
         },
-        
+
         domToMutation: function(xmlElement) {
             this.elseifCount_ = parseInt(xmlElement.getAttribute('elseif'), 10) || 0;
             this.elseCount_ = parseInt(xmlElement.getAttribute('else'), 10) || 0;
             this.rebuildShape_();
         },
-        
+
+        // Ajoute la ligne de contrôles (+ et éventuellement -) en bas du bloc
+        appendControls_: function() {
+            const controls = this.appendDummyInput('PLUS')
+                .appendField(new Blockly.FieldImage(
+                    IF_PLUS_ICON, 15, 15, '+', this.onPlusClick_.bind(this)
+                ));
+            // Le "-" n'apparaît que s'il y a une branche à supprimer
+            if (this.elseifCount_ > 0 || this.elseCount_ > 0) {
+                controls.appendField('  ');
+                controls.appendField(new Blockly.FieldImage(
+                    IF_MINUS_ICON, 15, 15, '-', this.onMinusClick_.bind(this)
+                ));
+            }
+        },
+
         // Reconstruction complète (utilisée par domToMutation)
         rebuildShape_: function() {
             // Supprimer les anciens inputs (sauf IF0 et DO0)
@@ -68,7 +93,7 @@
             if (this.getInput('PLUS')) {
                 this.removeInput('PLUS');
             }
-            
+
             // Ajouter les "sinon si"
             for (let i = 0; i < this.elseifCount_; i++) {
                 this.appendValueInput('IF' + (i + 1))
@@ -77,26 +102,29 @@
                 this.appendStatementInput('DO' + (i + 1))
                     .appendField('alors');
             }
-            
+
             // Ajouter le "sinon" si nécessaire
             if (this.elseCount_ > 0) {
                 this.appendStatementInput('ELSE')
                     .appendField('sinon');
             }
-            
-            // Ajouter le bouton +
-            this.appendDummyInput('PLUS')
-                .appendField(new Blockly.FieldImage(
-                    'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSIjZmZmIiBkPSJNMTkgMTNoLTZ2NmgtMnYtNkg1di0yaDZWNWgydjZoNnYyeiIvPjwvc3ZnPg==',
-                    15, 15, '+', this.onPlusClick_.bind(this)
-                ));
+
+            this.appendControls_();
         },
-        
+
         // Mise à jour incrémentale (préserve les blocs connectés)
-        updateShape_: function() {
+        // prevElseifCount / prevElseCount permettent de détecter une croissance
+        // ou une réduction et de transférer le contenu de ELSE correctement.
+        updateShape_: function(prevElseifCount, prevElseCount) {
+            if (prevElseifCount === undefined) prevElseifCount = this.elseifCount_;
+            if (prevElseCount === undefined) prevElseCount = this.elseCount_;
+            // Croissance d'un "sinon si" : on transforme l'ancien "sinon" en "sinon si"
+            // → son contenu doit migrer vers le nouveau dernier DO
+            const isGrowingElseif = this.elseifCount_ > prevElseifCount && prevElseCount > 0;
+
             // Sauvegarder les blocs connectés
             const savedConnections = {};
-            
+
             // Sauvegarder IF0 et DO0
             let ifInput = this.getInput('IF0');
             if (ifInput && ifInput.connection && ifInput.connection.targetConnection) {
@@ -106,7 +134,7 @@
             if (doInput && doInput.connection && doInput.connection.targetConnection) {
                 savedConnections['DO0'] = doInput.connection.targetConnection;
             }
-            
+
             // Sauvegarder les sinon si existants
             let i = 1;
             while (this.getInput('IF' + i)) {
@@ -120,14 +148,13 @@
                 }
                 i++;
             }
-            
-            // Sauvegarder le sinon (sera transféré vers le nouveau sinon si)
+
+            // Sauvegarder le contenu du "sinon"
             let elseInput = this.getInput('ELSE');
             if (elseInput && elseInput.connection && elseInput.connection.targetConnection) {
-                // Si on a ajouté un nouveau sinon si, le contenu de l'ancien sinon va dans DO du nouveau sinon si
-                savedConnections['ELSE_TO_TRANSFER'] = elseInput.connection.targetConnection;
+                savedConnections['ELSE'] = elseInput.connection.targetConnection;
             }
-            
+
             // Supprimer les inputs (sauf IF0 et DO0 qu'on garde toujours)
             i = 1;
             while (this.getInput('IF' + i)) {
@@ -141,7 +168,7 @@
             if (this.getInput('PLUS')) {
                 this.removeInput('PLUS');
             }
-            
+
             // Ajouter les "sinon si"
             for (let i = 0; i < this.elseifCount_; i++) {
                 this.appendValueInput('IF' + (i + 1))
@@ -150,20 +177,15 @@
                 this.appendStatementInput('DO' + (i + 1))
                     .appendField('alors');
             }
-            
+
             // Ajouter le "sinon" si nécessaire
             if (this.elseCount_ > 0) {
                 this.appendStatementInput('ELSE')
                     .appendField('sinon');
             }
-            
-            // Ajouter le bouton +
-            this.appendDummyInput('PLUS')
-                .appendField(new Blockly.FieldImage(
-                    'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBmaWxsPSIjZmZmIiBkPSJNMTkgMTNoLTZ2NmgtMnYtNkg1di0yaDZWNmgydjZoNnYyeiIvPjwvc3ZnPg==',
-                    15, 15, '+', this.onPlusClick_.bind(this)
-                ));
-            
+
+            this.appendControls_();
+
             // Reconnecter les blocs sauvegardés
             // IF0 et DO0
             if (savedConnections['IF0']) {
@@ -178,8 +200,8 @@
                     input.connection.connect(savedConnections['DO0']);
                 }
             }
-            
-            // Reconnecter les sinon si existants
+
+            // Reconnecter les sinon si existants (les branches en trop deviennent orphelines)
             for (let i = 1; i <= this.elseifCount_; i++) {
                 if (savedConnections['IF' + i]) {
                     const input = this.getInput('IF' + i);
@@ -194,18 +216,29 @@
                     }
                 }
             }
-            
-            // Transférer le contenu de l'ancien sinon vers le dernier sinon si
-            if (savedConnections['ELSE_TO_TRANSFER'] && this.elseifCount_ > 0) {
-                // Le contenu de l'ancien ELSE va dans le dernier DO (sinon si)
-                const lastDoInput = this.getInput('DO' + this.elseifCount_);
-                if (lastDoInput && lastDoInput.connection && !savedConnections['DO' + this.elseifCount_]) {
-                    lastDoInput.connection.connect(savedConnections['ELSE_TO_TRANSFER']);
+
+            // Reconnexion du "sinon"
+            if (savedConnections['ELSE']) {
+                if (isGrowingElseif) {
+                    // L'ancien "sinon" devient un "sinon si" → son contenu migre vers le dernier DO
+                    const lastDoInput = this.getInput('DO' + this.elseifCount_);
+                    if (lastDoInput && lastDoInput.connection && !savedConnections['DO' + this.elseifCount_]) {
+                        lastDoInput.connection.connect(savedConnections['ELSE']);
+                    }
+                } else if (this.elseCount_ > 0) {
+                    // Le "sinon" existe toujours → on y reconnecte le contenu
+                    const newElseInput = this.getInput('ELSE');
+                    if (newElseInput && newElseInput.connection) {
+                        newElseInput.connection.connect(savedConnections['ELSE']);
+                    }
                 }
+                // Sinon : le "sinon" a été retiré, son contenu devient orphelin
             }
         },
-        
+
         onPlusClick_: function() {
+            const prevElseif = this.elseifCount_;
+            const prevElse = this.elseCount_;
             if (this.elseCount_ === 0) {
                 // Première fois : ajouter "sinon"
                 this.elseCount_ = 1;
@@ -213,7 +246,22 @@
                 // Transformer le dernier "sinon" en "sinon si" et ajouter un nouveau "sinon"
                 this.elseifCount_++;
             }
-            this.updateShape_();
+            this.updateShape_(prevElseif, prevElse);
+        },
+
+        onMinusClick_: function() {
+            const prevElseif = this.elseifCount_;
+            const prevElse = this.elseCount_;
+            if (this.elseifCount_ > 0) {
+                // Retirer le dernier "sinon si" (le "sinon" reste)
+                this.elseifCount_--;
+            } else if (this.elseCount_ > 0) {
+                // Plus de "sinon si" : retirer le "sinon"
+                this.elseCount_ = 0;
+            } else {
+                return;
+            }
+            this.updateShape_(prevElseif, prevElse);
         }
     };
 

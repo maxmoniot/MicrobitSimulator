@@ -73,8 +73,13 @@ const WebUSBFlasher = {
             return true;
         }
         
-        // Essayer plusieurs CDN de @microbit/microbit-connection
+        // @microbit/microbit-connection : bundle LOCAL en priorité (auto-suffisant, voir
+        // js/microbit-connection/), puis CDN en secours si le fichier local venait à manquer.
+        // URL absolue (pas 'js/...' seul : un import() sans ./ est traité comme un bare
+        // specifier de module et échoue). document.baseURI => marche même en sous-dossier.
+        const localMc = new URL('js/microbit-connection/microbit-connection.bundle.mjs', document.baseURI).href;
         const urls = [
+            localMc,
             'https://esm.sh/@microbit/microbit-connection@0.0.0-alpha.39',
             'https://cdn.jsdelivr.net/npm/@microbit/microbit-connection@0.0.0-alpha.39/+esm'
         ];

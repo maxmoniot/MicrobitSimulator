@@ -364,7 +364,7 @@ function initBlockly() {
         horizontalLayout: false,
         toolboxPosition: 'start', // Flyout à gauche
         css: true,
-        media: 'https://unpkg.com/blockly/media/',
+        media: 'media/', // Media Blockly v12.3.1 servi EN LOCAL (dossier media/, version = blockly.min.js local). Aucune dépendance CDN : ne pas remettre une URL unpkg (le "latest" a déjà cassé sprites.png en passant à Blockly v13).
         rtl: false,
         scrollbars: true,
         oneBasedIndex: true,
@@ -386,7 +386,29 @@ function initBlockly() {
         // Augmenter la marge verticale pour remonter les boutons
         workspace.zoomControls_.MARGIN_VERTICAL = 80;
     }
-    
+
+    // Garder les métriques de la workspace à jour quand blocklyDiv change de taille.
+    // Sans ça, si le conteneur est redimensionné APRÈS l'injection (polices chargées
+    // tardivement, apparition d'un panneau simulateur via runProgram(), reflow flex…),
+    // Blockly conserve des métriques périmées (viewHeight = 0) et place les contrôles
+    // de zoom hors écran → ils "disparaissent". Le ResizeObserver des panneaux
+    // simulateurs n'observe que le conteneur des simulateurs, pas l'éditeur.
+    const blocklyDivEl = document.getElementById('blocklyDiv');
+    if (blocklyDivEl && typeof ResizeObserver !== 'undefined') {
+        let _wsResizeRaf = null;
+        const wsResizeObs = new ResizeObserver(() => {
+            if (_wsResizeRaf) cancelAnimationFrame(_wsResizeRaf);
+            _wsResizeRaf = requestAnimationFrame(() => {
+                if (!workspace) return;
+                if (workspace.zoomControls_) {
+                    workspace.zoomControls_.MARGIN_VERTICAL = 80;
+                }
+                Blockly.svgResize(workspace);
+            });
+        });
+        wsResizeObs.observe(blocklyDivEl);
+    }
+
     // Corriger la zone fantôme de 60px causée par la toolbox XML vide
     // Blockly réserve 60px pour une toolbox inexistante
     // On corrige absoluteLeft et viewLeft mais on garde le reste intact
@@ -790,6 +812,7 @@ function setupBlocklyTranslations() {
     
     // Math
     Blockly.Msg['MATH_RANDOM_INT_TITLE'] = 'nombre aléatoire entre %1 et %2';
+    Blockly.Msg['MATH_CHANGE_TITLE'] = 'change %1 en ajoutant %2';
     
     // Variables
     Blockly.Msg['VARIABLES_SET'] = 'définir %1 à %2';
@@ -2275,6 +2298,11 @@ function updateCard2ButtonVisibility() {
                 if (window.radioSimulator.isEnabled()) {
                     window.radioSimulator.disable();
                 }
+            }
+            // Mettre à jour l'avertissement groupe radio
+            if (window.radioSimulator.updateGroupWarning) {
+                const hasGroupBlock = workspace && workspace.getAllBlocks().some(b => b.type === 'radio_set_group');
+                window.radioSimulator.updateGroupWarning(hasRadioBlocks, hasGroupBlock);
             }
         }
     }

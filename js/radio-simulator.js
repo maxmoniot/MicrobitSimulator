@@ -34,7 +34,8 @@
             stopSecondProgram: stopSecondProgram,
             resetSecondMicrobit: resetSecondMicrobit,
             setUseMainProgram: setUseMainProgram,
-            getSecondMicrobit: () => secondMicrobit
+            getSecondMicrobit: () => secondMicrobit,
+            updateGroupWarning: updateRadioGroupWarning
         };
         
     }
@@ -159,6 +160,15 @@
                     <!-- Carte micro:bit -->
                     <div class="microbit-board-wrapper">
                         <div id="secondMicrobitSimulator"></div>
+                    </div>
+                </div>
+                
+                <!-- Avertissement groupe radio non défini -->
+                <div id="radioGroupWarning" class="radio-group-warning" style="display:none;">
+                    <span class="radio-group-warning-icon">⚠️</span>
+                    <div class="radio-group-warning-text">
+                        <strong>Groupe radio non défini</strong>
+                        <span>Ajoute le bloc <em>« définir groupe radio »</em> au démarrage</span>
                     </div>
                 </div>
                 
@@ -512,6 +522,17 @@
     /**
      * Active la radio et affiche la seconde carte
      */
+    function updateRadioGroupWarning(hasRadioBlocks, hasGroupBlock) {
+        const warning = document.getElementById('radioGroupWarning');
+        if (!warning) return;
+        // Afficher si des blocs radio sont présents MAIS pas de bloc set_group
+        if (hasRadioBlocks && !hasGroupBlock) {
+            warning.style.display = 'flex';
+        } else {
+            warning.style.display = 'none';
+        }
+    }
+
     function enableRadio() {
         if (radioEnabled) return;
         

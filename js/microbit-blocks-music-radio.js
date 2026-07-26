@@ -365,7 +365,7 @@
         init: function() {
             this.appendDummyInput()
                 .appendField('📻 quand nombre reçu')
-                .appendField(new Blockly.FieldVariable('receivedNumber'), 'VAR');
+                .appendField(new Blockly.FieldVariable('NombreReçu'), 'VAR');
             this.appendStatementInput('DO')
                 .setCheck(null);
             this.setColour('#E3008C');
@@ -384,7 +384,7 @@
         init: function() {
             this.appendDummyInput()
                 .appendField('📻 quand texte reçu')
-                .appendField(new Blockly.FieldVariable('receivedString'), 'VAR');
+                .appendField(new Blockly.FieldVariable('TexteReçu'), 'VAR');
             this.appendStatementInput('DO')
                 .setCheck(null);
             this.setColour('#E3008C');
