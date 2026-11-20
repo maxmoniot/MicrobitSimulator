@@ -1,0 +1,16 @@
+# Fichiers de travail de Max : exemples, fichiers d'élèves, essais.
+# NE JAMAIS publier sur GitHub.
+FichiersTemporaires/
+
+# Programmes d'exemple (non utilisés par l'appli, ~20 Mo de .hex) : pas sur GitHub
+ProgrammesPréFaits/
+
+# Instructions internes / outillage Claude (ne concernent pas l'app publiée)
+CLAUDE.md
+.claude/
+
+# Divers
+node_modules/
+Thumbs.db
+desktop.ini
+.DS_Store

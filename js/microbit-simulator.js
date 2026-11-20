@@ -184,12 +184,19 @@ class MicrobitSimulator {
         this.elements.logoTouch.addEventListener('mouseup', () => this.touchLogo(false));
         this.elements.logoTouch.addEventListener('mouseleave', () => this.touchLogo(false));
         
-        // Clavier
+        // Clavier (touches A et B) — sauf quand on tape dans un champ (valeur d'un bloc,
+        // recherche…) : sinon écrire « bravo » appuyait sur le bouton B du simulateur.
+        const typing = (e) => {
+            const t = e.target;
+            return !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+        };
         document.addEventListener('keydown', (e) => {
+            if (typing(e)) return;
             if (e.key === 'a' || e.key === 'A') this.pressButton('A');
             if (e.key === 'b' || e.key === 'B') this.pressButton('B');
         });
         document.addEventListener('keyup', (e) => {
+            // Toujours relâcher (sans effet de bord) : évite un bouton resté « appuyé »
             if (e.key === 'a' || e.key === 'A') this.releaseButton('A');
             if (e.key === 'b' || e.key === 'B') this.releaseButton('B');
         });
@@ -873,7 +880,12 @@ class MicrobitSimulator {
     async showString(str, interval = 150) {
         // Caractères de base pour le défilement
         const charPatterns = this.getCharPatterns();
-        
+
+        // Accepter aussi les nombres (ex. « afficher texte » avec une variable
+        // numérique, comme le permet MakeCode) : sans ça, for..of lève
+        // « str is not iterable ».
+        str = (str === null || str === undefined) ? '' : String(str);
+
         // Créer le buffer complet
         let buffer = [];
         for (const char of str) {
@@ -1364,16 +1376,15 @@ class MicrobitSimulator {
     // ========== UTILITAIRES ==========
     
     async pause(ms) {
+        // Heure de fin fixe (voir __pause dans app.js) : la durée ne dérive plus avec les minuteries en retard
         const gen = window._execGeneration || 0;
         const StopExec = window.__StopExecution || Error;
-        let remaining = ms;
-        while (remaining > 0) {
-            const chunk = Math.min(remaining, 50);
-            await new Promise(r => setTimeout(r, chunk));
+        const end = performance.now() + ms;
+        for (let left = ms; left > 0; left = end - performance.now()) {
+            await new Promise(r => setTimeout(r, Math.min(left, 50)));
             if ((window._execGeneration || 0) !== gen) {
                 throw new StopExec('__StopExecution');
             }
-            remaining -= chunk;
         }
     }
     

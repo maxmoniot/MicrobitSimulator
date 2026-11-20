@@ -48,15 +48,15 @@ const runtime = {
 function __onStart(fn) { runtime.onStartCallbacks.push(fn); }
 function __forever(fn) { runtime.foreverCallbacks.push(fn); }
 
-// Pause annulable : découpe en chunks de 50ms pour réagir vite à l'arrêt
+// Pause annulable : attente par morceaux de 50 ms max (pour réagir vite à l'arrêt), jusqu'à une
+// HEURE DE FIN fixe. Avant, on additionnait 20 morceaux de 50 ms : chaque minuterie arrivant un peu en
+// retard, « pause 1 s » durait 1,07 s (1,2 s sur un PC lent) et le Cutebot allait trop loin.
 async function __pause(ms) {
     const gen = _execGeneration;
-    let remaining = ms;
-    while (remaining > 0) {
-        const chunk = Math.min(remaining, 50);
-        await new Promise(r => setTimeout(r, chunk));
+    const end = performance.now() + ms;
+    for (let left = ms; left > 0; left = end - performance.now()) {
+        await new Promise(r => setTimeout(r, Math.min(left, 50)));
         if (_execGeneration !== gen) throw new __StopExecution();
-        remaining -= chunk;
     }
 }
 
@@ -540,7 +540,21 @@ function initBlockly() {
         }
     });
     
-    workspace.addChangeListener(e => { 
+    // Clic EN DEHORS de la zone des blocs (simulateurs, catégories, en-tête…) pendant
+    // qu'un champ est en cours de saisie : valider la valeur et fermer le champ.
+    // Blockly ne le fait lui-même que pour les clics DANS la zone des blocs : sinon le
+    // champ restait ouvert, sans focus, et le clic suivant servait juste à le fermer.
+    document.addEventListener('pointerdown', (e) => {
+        const widgetOpen = Blockly.WidgetDiv.isVisible();
+        const dropdownOpen = Blockly.DropDownDiv.isVisible();
+        if (!widgetOpen && !dropdownOpen) return;
+        const t = e.target;
+        if (t && t.closest && (t.closest('.blocklyWidgetDiv') || t.closest('.blocklyDropDownDiv') || t.closest('.injectionDiv'))) return;
+        if (widgetOpen) Blockly.WidgetDiv.hide();
+        if (dropdownOpen) Blockly.DropDownDiv.hideWithoutAnimation();
+    }, true);
+
+    workspace.addChangeListener(e => {
         if (e.type !== Blockly.Events.UI) {
             // Vérifier les blocs chapeaux dupliqués
             if (e.type === Blockly.Events.BLOCK_CREATE || 
@@ -1540,6 +1554,7 @@ function updateGeneratedCode() {
             'radio_on_received_number',
             'radio_on_received_string',
             'cutebot_on_ir_receive',
+            'cutebot_on_track_event',
             // Blocs de définition de fonction (ils sont valides en tant que blocs de niveau supérieur)
             'procedures_defnoreturn',
             'procedures_defreturn'
@@ -1686,24 +1701,17 @@ function generateCodeFromXmlString(xmlString) {
             return '';
         }
         
-        // Créer un workspace temporaire
-        const tempDiv = document.createElement('div');
-        tempDiv.style.display = 'none';
-        document.body.appendChild(tempDiv);
-        
-        const tempWorkspace = Blockly.inject(tempDiv, {
-            readOnly: true
-        });
-        
-        const xml = Blockly.utils.xml.textToDom(xmlString);
-        Blockly.Xml.domToWorkspace(xml, tempWorkspace);
-        
-        const code = Blockly.JavaScript.workspaceToCode(tempWorkspace);
-        
-        tempWorkspace.dispose();
-        document.body.removeChild(tempDiv);
-        
-        return code;
+        // Workspace temporaire SANS affichage (headless).
+        // Ne pas utiliser Blockly.inject ici : créer un workspace affiché vole le focus
+        // du champ en cours de saisie (l'élève devait recliquer après chaque relance auto).
+        const tempWorkspace = new Blockly.Workspace();
+        try {
+            const xml = Blockly.utils.xml.textToDom(xmlString);
+            Blockly.Xml.domToWorkspace(xml, tempWorkspace);
+            return Blockly.JavaScript.workspaceToCode(tempWorkspace);
+        } finally {
+            tempWorkspace.dispose();
+        }
     } catch (e) {
         console.error('🔧 Erreur génération code depuis XML:', e);
         return '';
@@ -1815,9 +1823,15 @@ function openInMakeCode() {
     downloadHexFile(currentCode);
 }
 
-async function downloadHex() {
+async function downloadHex(event) {
     updateGeneratedCode();
-    
+
+    // Programme avec erreurs (valeurs impossibles, cases vides, blocs non accrochés…) :
+    // téléchargement bloqué et erreurs montrées sur les blocs (voir js/program-checker.js).
+    if (window.ProgramChecker && !window.ProgramChecker.guardDownload(event)) {
+        return;
+    }
+
     // Préparer les métadonnées du projet (Blockly XML) pour les embarquer dans le HEX
     const currentXml = Blockly.Xml.workspaceToDom(workspace);
     const currentXmlText = Blockly.Xml.domToText(currentXml);
@@ -1856,6 +1870,34 @@ function loadProject() {
                     const markerIndex = content.indexOf(PBLOCKS_MARKER);
                     
                     if (markerIndex === -1) {
+                        // Pas de données P-Blocks : c'est peut-être un .hex venant de
+                        // makecode.microbit.org, qui embarque son projet autrement.
+                        if (window.MakeCodeImport && MakeCodeImport.isMakeCodeHex(content)) {
+                            try {
+                                const res = MakeCodeImport.convertHex(content);
+
+                                const xml = Blockly.utils.xml.textToDom(res.xml);
+                                workspace.clear();
+                                Blockly.Xml.domToWorkspace(xml, workspace);
+
+                                // Un projet MakeCode ne concerne qu'une seule carte
+                                card1Xml = res.xml;
+                                card2Xml = null;
+                                card2Initialized = false;
+
+                                showToast(`📂 Projet MakeCode importé : ${res.count} bloc(s)`, 'success');
+                                if (res.unsupported.length || res.warnings.length) {
+                                    showMakeCodeImportReport(res);
+                                }
+                                updateCard2ButtonVisibility();
+                                openRequiredPanelsAndRun();
+                            } catch (mcErr) {
+                                console.error('Erreur import MakeCode:', mcErr);
+                                showToast('❌ ' + mcErr.message, 'error');
+                            }
+                            return;
+                        }
+
                         showToast('❌ Ce fichier HEX ne contient pas de données P-Blocks', 'error');
                         return;
                     }
@@ -2008,6 +2050,29 @@ function loadProject() {
         reader.readAsText(file);
     };
     input.click();
+}
+
+/**
+ * Affiche ce qui n'a pas pu être importé depuis un projet MakeCode.
+ * Mieux vaut le dire clairement que de laisser croire à un import complet.
+ */
+function showMakeCodeImportReport(res) {
+    let msg = '';
+    if (res.unsupported && res.unsupported.length) {
+        msg += 'Blocs MakeCode sans équivalent (non importés) :\n  • '
+            + res.unsupported.join('\n  • ') + '\n';
+    }
+    if (res.warnings && res.warnings.length) {
+        if (msg) msg += '\n';
+        msg += 'Adaptations effectuées :\n  • ' + res.warnings.join('\n  • ');
+    }
+    if (!msg) return;
+    console.warn('[Import MakeCode]\n' + msg);
+    setTimeout(() => {
+        showToast('⚠️ Import partiel : voir le détail affiché', 'error');
+        alert('Import MakeCode terminé\n\n' + msg
+            + '\n\nLe reste du programme a été importé normalement.');
+    }, 700);
 }
 
 /**

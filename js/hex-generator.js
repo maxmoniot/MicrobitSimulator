@@ -78,13 +78,21 @@ class HexGenerator {
         let code = simCode;
         
         // Détecter si le code utilise Cutebot
-        const usesCutebot = /__motors|__forward|__backward|__turnLeft|__turnRight|__stop|__ledColor|__ledRGB|__ledOff|__trackingState|__trackSide|__ultrasonic|__servo|__moveTime/.test(code);
-        
+        const usesCutebot = /__motors|__forward|__backward|__turnLeft|__turnRight|__stop|__ledColor|__ledRGB|__ledOff|__trackingState|__trackSide|__ultrasonic|__servo|__moveTime|__onTrackEvent/.test(code);
+
         // Détecter si le code utilise l'extension Servo (Barrières)
         const usesServo = /__servoSetAngle|__servoRun|__servoStop|__servoSetRange|__servoSetStopMode|__servoSetPulse/.test(code);
-        
+
         // Détecter si le code utilise l'extension RFID (Portillon)
         const usesRFID = /__rfidInit|__rfidGetId|__rfidRead|__rfidWrite|__rfidAntennaOff/.test(code);
+
+        // Événements Cutebot « quand capteur … trouve / perd la ligne »
+        const trackEvents = [];
+        const trackRegex = /__onTrackEvent\("(Left|Right)",\s*"(FindLine|LoseLine)",\s*async function\(\) \{([\s\S]*?)\}\);/g;
+        let trackMatch;
+        while ((trackMatch = trackRegex.exec(code)) !== null) {
+            trackEvents.push({ side: trackMatch[1], event: trackMatch[2], code: trackMatch[3].trim() });
+        }
         
         // Détecter si le code utilise des boutons IR
         const hasIRButtons = /__irButtonPressed\("([^"]+)"\)/.test(code);
@@ -313,10 +321,12 @@ class HexGenerator {
                 // Pour gauche blanc: valeurs 0 ou 1 (< 10)
                 // Pour droite noir: valeurs 1 ou 11 (impair, % 10 == 1)
                 // Pour droite blanc: valeurs 0 ou 10 (pair, % 10 == 0)
+                // Le bloc envoie "FindLine" (voit la ligne) ou "LoseLine" ; "Black" = ancien nom
+                const onLine = event === 'FindLine' || event === 'Black';
                 if (side === 'Left') {
-                    return event === 'Black' ? '(robot.get_tracking() >= 10)' : '(robot.get_tracking() < 10)';
+                    return onLine ? '(robot.get_tracking() >= 10)' : '(robot.get_tracking() < 10)';
                 } else {
-                    return event === 'Black' ? '(robot.get_tracking() % 10 == 1)' : '(robot.get_tracking() % 10 == 0)';
+                    return onLine ? '(robot.get_tracking() % 10 == 1)' : '(robot.get_tracking() % 10 == 0)';
                 }
             });
             c = c.replace(/__ultrasonic\("Inches"\)/g, 'robot.get_distance(1)');
@@ -618,7 +628,19 @@ class HexGenerator {
         if (logoEvents.length > 0) {
             result += '_logo_prev = False\n\n';
         }
-        
+
+        // Programme avec des événements (boutons, gestes, logo, radio, capteurs de ligne) :
+        // chaque événement devient une TÂCHE qui tourne en parallèle de « au démarrage » / « toujours »,
+        // comme dans le simulateur et dans MakeCode (voir buildTaskProgram).
+        const usesTasks = buttonEvents.length > 0 || gestureEvents.length > 0 || logoEvents.length > 0 ||
+                          radioNumberEvents.length > 0 || radioStringEvents.length > 0 || trackEvents.length > 0;
+        if (usesTasks) {
+            return result + this.buildTaskProgram({
+                convertToPython, userFunctions, onStartCode, foreverCode, buttonEvents, gestureEvents,
+                logoEvents, radioNumberEvents, radioStringEvents, trackEvents, hasIRButtons
+            });
+        }
+
         // Générer les fonctions utilisateur
         if (userFunctions.length > 0) {
             result += '# Fonctions utilisateur\n';
@@ -626,6 +648,9 @@ class HexGenerator {
                 const args = func.args; // Les arguments sont déjà au bon format
                 result += `def ${func.name}(${args}):\n`;
                 const bodyCode = convertToPython(func.body, '    ');
+                // Variables modifiées dans la fonction → global (sinon UnboundLocalError sur la carte)
+                const globals = this.pyGlobalsLine(bodyCode, args);
+                if (globals) result += globals;
                 if (bodyCode.trim()) {
                     result += bodyCode + '\n';
                 } else {
@@ -636,25 +661,26 @@ class HexGenerator {
         }
         
         // Générer la fonction _check_events() si nécessaire
-        const hasEvents = buttonEvents.length > 0 || gestureEvents.length > 0 || 
+        const hasEvents = buttonEvents.length > 0 || gestureEvents.length > 0 ||
                           logoEvents.length > 0 ||
                           radioNumberEvents.length > 0 || radioStringEvents.length > 0 || hasIRButtons;
         const hasWhileInForever = foreverCode && /\bwhile\s*\(/.test(foreverCode);
-        
+
         if (hasEvents && hasWhileInForever) {
             result += '# Fonction pour verifier les evenements\n';
             result += 'def _check_events():\n';
-            
+
             // Déclarer les variables globales modifiées
             const globalVars = new Set();
             for (const evt of radioNumberEvents) globalVars.add(evt.varName);
             for (const evt of radioStringEvents) globalVars.add(evt.varName);
             if (hasIRButtons) globalVars.add('ir_code');
-            
+
             if (globalVars.size > 0) {
                 result += `    global ${Array.from(globalVars).join(', ')}\n`;
             }
-            
+
+
             // IR
             if (hasIRButtons) {
                 result += '    _ir = read_ir()\n';
@@ -748,7 +774,8 @@ class HexGenerator {
         // Boucle forever avec événements intégrés
         result += '# Boucle principale\n';
         result += 'while True:\n';
-        
+
+
         // Lire l'IR si utilisé
         if (hasIRButtons) {
             result += '    # Lire la telecommande IR\n';
@@ -873,8 +900,232 @@ class HexGenerator {
         if (!foreverCode || (!foreverCode.includes('__pause') && !foreverCode.includes('__pauseSeconds') && !foreverCode.includes('sleep'))) {
             result += '    sleep(10)\n';
         }
-        
+
+
         return result;
+    }
+
+    // ===================== Programme à tâches (événements) =====================
+
+    /** Ligne « global … » pour les variables MODIFIÉES dans un corps de fonction (hors paramètres). */
+    pyGlobalsLine(py, params = '', extra = []) {
+        const KW = ['if', 'elif', 'else', 'while', 'for', 'return', 'not', 'and', 'or', 'yield', 'global',
+            'def', 'pass', 'break', 'continue', 'True', 'False', 'None', 'in', 'is', 'lambda', 'try',
+            'except', 'finally', 'import', 'from', 'class', 'with', 'as', 'del', 'assert', 'raise'];
+        const p = String(params).split(',').map(s => s.trim()).filter(Boolean);
+        const names = new Set(extra);
+        for (const line of py.split('\n')) {
+            const m = line.match(/^\s*([A-Za-z_]\w*)\s*(?:=(?!=)|\+=|-=|\*=|\/=|\/\/=|%=)/) ||
+                      line.match(/^\s*for\s+([A-Za-z_]\w*)\s+in\b/);
+            if (m && !KW.includes(m[1]) && !p.includes(m[1])) names.add(m[1]);
+        }
+        return names.size ? `    global ${Array.from(names).join(', ')}\n` : '';
+    }
+
+    /** sleep(x) seul sur sa ligne → yield x : la pause rend la main aux autres tâches. */
+    pySleepToYield(py) {
+        return py.split('\n').map(l => {
+            const m = l.match(/^(\s*)sleep\((.*)\)\s*$/);
+            return m ? `${m[1]}yield ${m[2]}` : l;
+        }).join('\n');
+    }
+
+    /** « yield 0 » à la fin de chaque boucle while : une boucle d'attente ne bloque plus les événements. */
+    pyYieldInWhile(py) {
+        const out = [];
+        const open = []; // indentation des while dont le corps est en cours
+        const ind = (l) => l.match(/^ */)[0].length;
+        for (const l of py.split('\n')) {
+            if (l.trim()) {
+                while (open.length && ind(l) <= open[open.length - 1]) {
+                    out.push(' '.repeat(open.pop() + 4) + 'yield 0');
+                }
+            }
+            out.push(l);
+            if (/^\s*while\b.*:\s*$/.test(l)) open.push(ind(l));
+        }
+        while (open.length) out.push(' '.repeat(open.pop() + 4) + 'yield 0');
+        return out.join('\n');
+    }
+
+    /** Appels aux fonctions-tâches : instruction → yield from f(), sinon _sync(f)(…) (exécution bloquante). */
+    pyRewriteTaskCalls(py, genFns) {
+        if (!genFns.size) return py;
+        const alt = Array.from(genFns).join('|');
+        const stmt = new RegExp(`^(\\s*)((?:${alt})\\(.*\\))\\s*$`);
+        const assign = new RegExp(`^(\\s*[A-Za-z_]\\w*\\s*=\\s*)((?:${alt})\\(.*\\))\\s*$`);
+        const any = new RegExp(`(?<![.\\w])(${alt})\\(`, 'g');
+        return py.split('\n').map(l => {
+            let m = l.match(stmt);
+            if (m) return `${m[1]}yield from ${m[2]}`;
+            m = l.match(assign);
+            if (m) return `${m[1]}yield from ${m[2]}`;
+            return l.replace(any, '_sync($1)(');
+        }).join('\n');
+    }
+
+    /**
+     * Programme MicroPython pour un programme qui a des événements.
+     *
+     * Sur la carte, MicroPython n'a qu'un fil d'exécution. Avant, les événements n'étaient vérifiés
+     * qu'entre deux tours de « toujours » : jusqu'à plusieurs secondes de retard, A+B et le logo
+     * souvent perdus, et la pause d'un événement figeait « toujours ».
+     * Ici chaque bloc de départ devient un générateur Python (une TÂCHE) : chaque pause devient
+     * « yield ms » et rend la main ; un petit ordonnanceur fait avancer les tâches et surveille les
+     * événements toutes les ~1 ms. Chaque déclenchement lance une nouvelle tâche, en parallèle du
+     * reste, exactement comme le simulateur (microbit-simulator.js triggerEvent, cutebot-simulator.js
+     * dispatchTrackEvents). Limite : un défilement de texte ou une mélodie bloque encore toute la carte.
+     */
+    buildTaskProgram(p) {
+        const IND = '    ';
+        const prep = (py) => this.pyYieldInWhile(this.pySleepToYield(py));
+        const conv = (js, indent = IND) => js ? prep(p.convertToPython(js, indent)) : '';
+
+        // --- Fonctions utilisateur : celles qui contiennent une pause (même via une autre) sont des tâches
+        const fns = p.userFunctions.map(f => ({ name: f.name, params: f.args, body: conv(f.body) }));
+        const genFns = new Set();
+        for (let changed = true; changed;) {
+            changed = false;
+            for (const f of fns) {
+                if (genFns.has(f.name)) continue;
+                const callsGen = Array.from(genFns).some(g => new RegExp(`(?<![.\\w])${g}\\(`).test(f.body));
+                if (/^\s*yield\b/m.test(f.body) || callsGen) { genFns.add(f.name); changed = true; }
+            }
+        }
+
+        // --- Tâches : programme principal + un générateur par événement
+        const tasks = [];
+        let main = conv(p.onStartCode);
+        if (p.foreverCode) {
+            const fb = conv(p.foreverCode, IND + IND);
+            const hasPause = /^\s*yield\b/m.test(fb);
+            main += (main ? '\n' : '') + `${IND}while True:\n` + (fb.trim() ? fb + '\n' : '') +
+                    `${IND}${IND}yield ${hasPause ? 0 : 10}`;
+        }
+        tasks.push({ name: '_principal', param: '', body: main });
+        const launch = []; // { test: code python (lignes du corps de _evenements), ... }
+        let k = 0;
+        const addTask = (js, param = '', setVar = '') => {
+            const name = `_evt_${++k}`;
+            tasks.push({ name, param, body: (setVar ? `${IND}${setVar} = _v\n` : '') + conv(js), setVar });
+            return name;
+        };
+
+        const ev = [];
+        const evGlobals = [];
+        for (const e of p.buttonEvents) {
+            const t = addTask(e.code);
+            if (e.button === 'AB') {
+                evGlobals.push('_ab_prev');
+                ev.push(`    _ab = button_a.is_pressed() and button_b.is_pressed()`,
+                        `    if _ab and not _ab_prev:`, `        _lancer(${t}())`, `    _ab_prev = _ab`);
+            } else {
+                ev.push(`    if button_${e.button.toLowerCase()}.was_pressed():`, `        _lancer(${t}())`);
+            }
+        }
+        const gestureMap = {
+            'shake': 'shake', 'logo up': 'face up', 'logo down': 'face down',
+            'screen up': 'up', 'screen down': 'down', 'tilt left': 'left', 'tilt right': 'right',
+            'free fall': 'freefall', '3g': '3g', '6g': '6g'
+        };
+        for (const e of p.gestureEvents) {
+            const t = addTask(e.code);
+            ev.push(`    if accelerometer.was_gesture("${gestureMap[e.gesture] || 'shake'}"):`, `        _lancer(${t}())`);
+        }
+        if (p.logoEvents.length) {
+            evGlobals.push('_logo_prev');
+            ev.push('    _logo = pin_logo.is_touched()');
+            for (const e of p.logoEvents) {
+                const t = addTask(e.code);
+                ev.push(e.event === 'released' ? '    if _logo_prev and not _logo:' : '    if _logo and not _logo_prev:',
+                        `        _lancer(${t}())`);
+            }
+            ev.push('    _logo_prev = _logo');
+        }
+        if (p.radioNumberEvents.length || p.radioStringEvents.length) {
+            ev.push('    _m = radio.receive()', '    if _m is not None:');
+            if (p.radioNumberEvents.length) ev.push('        _n = _nombre(_m)');
+            for (const e of p.radioNumberEvents) {
+                const t = addTask(e.code, '_v', e.varName);
+                ev.push('        if _n is not None:', `            _lancer(${t}(_n))`);
+            }
+            for (const e of p.radioStringEvents) {
+                const t = addTask(e.code, '_v', e.varName);
+                ev.push(`        _lancer(${t}(_m))`);
+            }
+        }
+        if (p.trackEvents.length) {
+            // Capteurs de ligne : un CHANGEMENT déclenche (rien au démarrage), comme MakeCode (Edge)
+            evGlobals.push('_trk_g', '_trk_d');
+            ev.push('    _t = robot.get_tracking()', '    _g = _t >= 10', '    _d = _t % 10 == 1',
+                    '    if _trk_g is not None:');
+            for (const [side, v, seen] of [['Left', '_g', '_trk_g'], ['Right', '_d', '_trk_d']]) {
+                for (const [event, cond] of [['FindLine', v], ['LoseLine', `not ${v}`]]) {
+                    const e = p.trackEvents.find(x => x.side === side && x.event === event);
+                    if (!e) continue;
+                    const t = addTask(e.code);
+                    ev.push(`        if ${v} != ${seen} and ${cond}:`, `            _lancer(${t}())`);
+                }
+            }
+            ev.push('    _trk_g = _g', '    _trk_d = _d');
+        }
+        if (p.hasIRButtons) {
+            evGlobals.push('ir_code');
+            ev.push('    _ir = read_ir()', '    if _ir > 0:', '        ir_code = _ir');
+        }
+
+        // --- Appels aux fonctions-tâches
+        for (const f of fns) f.body = this.pyRewriteTaskCalls(f.body, genFns);
+        for (const t of tasks) t.body = this.pyRewriteTaskCalls(t.body, genFns);
+        const all = fns.map(f => f.body).concat(tasks.map(t => t.body)).join('\n');
+
+        // --- Assemblage
+        let r = '# Taches : chaque evenement tourne en parallele du reste (comme dans le simulateur)\n';
+        r += '_taches = []\n\n';
+        r += 'def _lancer(g):\n    if len(_taches) < 12:\n        _taches.append([running_time(), g])\n\n';
+        if (all.includes('_sync(')) {
+            r += 'def _sync(f):\n    def _w(*a):\n        g = f(*a)\n        try:\n            while True:\n' +
+                 '                sleep(int(next(g) or 0))\n        except StopIteration as e:\n' +
+                 '            return e.args[0] if e.args else None\n    return _w\n\n';
+        }
+        if (p.radioNumberEvents.length) {
+            r += 'def _nombre(m):\n    try:\n        return int(m)\n    except ValueError:\n        try:\n' +
+                 '            return float(m)\n        except ValueError:\n            return None\n\n';
+        }
+        if (evGlobals.includes('_ab_prev')) r += '_ab_prev = False\n';
+        if (evGlobals.includes('_trk_g')) r += '_trk_g = None\n_trk_d = None\n';
+        if (evGlobals.length) r += '\n';
+
+        if (fns.length) r += '# Fonctions utilisateur\n';
+        for (const f of fns) {
+            r += `def ${f.name}(${f.params}):\n` + this.pyGlobalsLine(f.body, f.params) +
+                 (f.body.trim() ? f.body + '\n' : `${IND}pass\n`) + '\n';
+        }
+        for (const t of tasks) {
+            r += t.name === '_principal' ? '# Au demarrage, puis toujours\n' : '';
+            r += `def ${t.name}(${t.param}):\n` + this.pyGlobalsLine(t.body, t.param, t.setVar ? [t.setVar] : []) +
+                 (t.body.trim() ? t.body + '\n' : '') + `${IND}yield 0\n\n`;
+        }
+        r += '# Evenements : surveilles toutes les ~1 ms\n';
+        r += 'def _evenements():\n';
+        if (evGlobals.length) r += `    global ${evGlobals.join(', ')}\n`;
+        r += ev.length ? ev.join('\n') + '\n\n' : '    pass\n\n';
+        r += '# Ordonnanceur\n';
+        r += '_lancer(_principal())\n';
+        r += 'while True:\n';
+        r += '    _evenements()\n';
+        r += '    _i = 0\n';
+        r += '    while _i < len(_taches):\n';
+        r += '        _t = _taches[_i]\n';
+        r += '        if running_time() >= _t[0]:\n';
+        r += '            try:\n';
+        r += '                _t[0] = running_time() + int(next(_t[1]) or 0)\n';
+        r += '            except StopIteration:\n';
+        r += '                _taches.pop(_i)\n';
+        r += '                continue\n';
+        r += '        _i += 1\n';
+        r += '    sleep(1)\n';
+        return r;
     }
 
     /**
@@ -1262,6 +1513,12 @@ class HexGenerator {
             const eventMap = { 'pressed': 'Pressed', 'released': 'Released', 'long pressed': 'LongPressed' };
             const event = eventMap[m[1]] || 'Pressed';
             result += `input.onLogoEvent(TouchButtonEvent.${event}, function () {\n${convert(m[2])}})\n`;
+        }
+
+        // Cutebot : quand capteur … trouve / perd la ligne (pxt-cutebot : cuteBot.trackEvent)
+        const trackEventsTS = code.matchAll(/__onTrackEvent\("(Left|Right)",\s*"(FindLine|LoseLine)",\s*async function\(\) \{([\s\S]*?)\}\);/g);
+        for (const m of trackEventsTS) {
+            result += `cuteBot.trackEvent(cuteBot.MbPins.${m[1]}, cuteBot.MbEvents.${m[2]}, function () {\n${convert(m[3])}})\n`;
         }
         
         // Événements radio - nombre reçu

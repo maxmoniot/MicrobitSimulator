@@ -590,7 +590,8 @@ class CutebotSimulator {
     
     update(dt) {
         if (!this.isRunning) return;
-        
+        const prevPose = { x: this.robot.x, y: this.robot.y, angle: this.robot.angle };
+
         // ============================================
         // PARAMÈTRE DE VITESSE
         const BASE_SPEED = 798;
@@ -659,34 +660,83 @@ class CutebotSimulator {
             this.robot.angle = targetAngle;
         }
         
-        // Capteurs de ligne
+        // Capteurs de ligne (bloc « capteur … voit la ligne ») : 6 fois par seconde (calibré)
         const now = Date.now();
         if (now - this.lastSensorCheck >= this.sensorCheckInterval) {
             this.lastSensorCheck = now;
-            
-            const oldLeft = this.robot.leftSensor;
-            const oldRight = this.robot.rightSensor;
-            
-            const sensorAngle = this.robot.angle * Math.PI / 180;
-            const sensorDist = this.robot.height / 2 + 12;
-            const sensorSpacing = 12;
-            
-            const leftSensorX = this.robot.x + Math.cos(sensorAngle) * sensorDist + Math.sin(sensorAngle) * sensorSpacing;
-            const leftSensorY = this.robot.y + Math.sin(sensorAngle) * sensorDist - Math.cos(sensorAngle) * sensorSpacing;
-            this.robot.leftSensor = this.checkPixel(leftSensorX, leftSensorY);
-            
-            const rightSensorX = this.robot.x + Math.cos(sensorAngle) * sensorDist - Math.sin(sensorAngle) * sensorSpacing;
-            const rightSensorY = this.robot.y + Math.sin(sensorAngle) * sensorDist + Math.cos(sensorAngle) * sensorSpacing;
-            this.robot.rightSensor = this.checkPixel(rightSensorX, rightSensorY);
-            
-            if (oldLeft !== this.robot.leftSensor) {
-                const cb = this.trackEvents.Left[this.robot.leftSensor ? 'FindLine' : 'LoseLine'];
-                if (cb) try { cb(); } catch(e) { console.error(e); }
-            }
-            if (oldRight !== this.robot.rightSensor) {
-                const cb = this.trackEvents.Right[this.robot.rightSensor ? 'FindLine' : 'LoseLine'];
-                if (cb) try { cb(); } catch(e) { console.error(e); }
-            }
+            this.readLineSensors();
+        }
+
+        // Blocs « quand capteur … trouve / perd la ligne » : suivis à chaque image ET le long du
+        // trajet parcouru, sinon une ligne fine est sautée entre deux relevés (la carte relit ses
+        // capteurs toutes les 5 ms, elle ne la rate jamais).
+        if (this.hasTrackHandlers()) {
+            this.followTrackSensors(prevPose);
+        }
+    }
+
+    /** Position des deux capteurs de ligne pour une pose du robot. */
+    lineSensorPoints(x, y, angleDeg) {
+        const a = angleDeg * Math.PI / 180;
+        const dist = this.robot.height / 2 + 12;
+        const spacing = 12;
+        return {
+            Left: { x: x + Math.cos(a) * dist + Math.sin(a) * spacing, y: y + Math.sin(a) * dist - Math.cos(a) * spacing },
+            Right: { x: x + Math.cos(a) * dist - Math.sin(a) * spacing, y: y + Math.sin(a) * dist + Math.cos(a) * spacing }
+        };
+    }
+
+    /** Lit les deux capteurs de ligne (true = au-dessus de la ligne noire). */
+    readLineSensors() {
+        const p = this.lineSensorPoints(this.robot.x, this.robot.y, this.robot.angle);
+        this.robot.leftSensor = this.checkPixel(p.Left.x, p.Left.y);
+        this.robot.rightSensor = this.checkPixel(p.Right.x, p.Right.y);
+    }
+
+    hasTrackHandlers() {
+        const t = this.trackEvents;
+        return !!(t.Left.FindLine || t.Left.LoseLine || t.Right.FindLine || t.Right.LoseLine);
+    }
+
+    /** Échantillonne les capteurs tous les 6 px entre la pose précédente et la pose actuelle. */
+    followTrackSensors(prev) {
+        const p0 = this.lineSensorPoints(prev.x, prev.y, prev.angle);
+        const p1 = this.lineSensorPoints(this.robot.x, this.robot.y, this.robot.angle);
+        const d = Math.max(Math.hypot(p1.Left.x - p0.Left.x, p1.Left.y - p0.Left.y),
+                           Math.hypot(p1.Right.x - p0.Right.x, p1.Right.y - p0.Right.y));
+        const n = Math.min(50, Math.max(1, Math.ceil(d / 6)));
+        for (let k = 1; k <= n; k++) {
+            const t = k / n;
+            this.trackNow = {
+                Left: this.checkPixel(p0.Left.x + (p1.Left.x - p0.Left.x) * t, p0.Left.y + (p1.Left.y - p0.Left.y) * t),
+                Right: this.checkPixel(p0.Right.x + (p1.Right.x - p0.Right.x) * t, p0.Right.y + (p1.Right.y - p0.Right.y) * t)
+            };
+            this.dispatchTrackEvents();
+        }
+    }
+
+    /**
+     * Blocs « quand capteur … trouve / perd la ligne ».
+     * Même règle que les autres événements (boutons…) et que le main.py de la vraie carte
+     * (hex-generator.js, buildTaskProgram) : seul un CHANGEMENT déclenche (rien au démarrage si le
+     * robot est déjà sur la ligne), et chaque déclenchement s'exécute en parallèle du reste.
+     */
+    dispatchTrackEvents() {
+        if (!this.trackSeen || !this.trackNow) return;
+        const now = this.trackNow;
+        const gen = window._execGeneration || 0;
+        for (const side of ['Left', 'Right']) {
+            if (now[side] === this.trackSeen[side]) continue;
+            this.trackSeen[side] = now[side];
+            const cb = this.trackEvents[side][now[side] ? 'FindLine' : 'LoseLine'];
+            if (!cb) continue;
+            Promise.resolve().then(async () => {
+                if ((window._execGeneration || 0) !== gen) return;
+                await cb();
+            }).catch(e => {
+                if (e && e.name === '__StopExecution') return;
+                console.error(e);
+            });
         }
     }
     
@@ -1834,18 +1884,17 @@ class CutebotSimulator {
         const [l, r] = dirs[dir] || [0, 0];
         this.setMotors(l, r);
         
-        // Pause annulable avec chunks de 50ms
+        // Pause annulable jusqu'à une heure de fin fixe (voir __pause dans app.js) : avant, les morceaux
+        // de 50 ms s'additionnaient avec leur retard et « pendant 1 s » durait 1,07 à 1,2 s (robot trop loin)
         const gen = window._execGeneration || 0;
         const StopExec = window.__StopExecution || Error;
-        let remaining = time * 1000;
+        const end = performance.now() + time * 1000;
         try {
-            while (remaining > 0) {
-                const chunk = Math.min(remaining, 50);
-                await new Promise(resolve => setTimeout(resolve, chunk));
+            for (let left = time * 1000; left > 0; left = end - performance.now()) {
+                await new Promise(resolve => setTimeout(resolve, Math.min(left, 50)));
                 if ((window._execGeneration || 0) !== gen) {
                     throw new StopExec('__StopExecution');
                 }
-                remaining -= chunk;
             }
         } catch (e) {
             this.stopMotors();
@@ -1959,6 +2008,10 @@ class CutebotSimulator {
     
     start() {
         this.isRunning = true;
+        // État de départ des capteurs : la carte ne réagit qu'aux changements qui suivent
+        this.readLineSensors();
+        this.trackNow = { Left: this.robot.leftSensor, Right: this.robot.rightSensor };
+        this.trackSeen = { ...this.trackNow };
     }
     
     stopSimulation() {
@@ -1996,8 +2049,10 @@ class CutebotSimulator {
             Left: { FindLine: null, LoseLine: null },
             Right: { FindLine: null, LoseLine: null }
         };
+        this.trackSeen = null;
+        this.trackNow = null;
         this.irCallback = null;
-        
+
         // Relâcher l'obstacle attrapé
         this.releaseObstacle();
         this.grippingTarget = null;

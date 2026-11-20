@@ -1399,19 +1399,16 @@
     function generateCodeFromXml(xmlText) {
         if (!xmlText) return '';
         
-        const tempDiv = document.createElement('div');
-        tempDiv.style.display = 'none';
-        document.body.appendChild(tempDiv);
-        
-        const tempWorkspace = Blockly.inject(tempDiv, { readOnly: true });
-        
+        // Workspace SANS affichage : Blockly.inject volait le focus du champ en cours
+        // de saisie à chaque relance automatique du programme.
+        const tempWorkspace = new Blockly.Workspace();
+
         try {
             const xml = Blockly.utils.xml.textToDom(xmlText);
             Blockly.Xml.domToWorkspace(xml, tempWorkspace);
             return Blockly.JavaScript.workspaceToCode(tempWorkspace);
         } finally {
             tempWorkspace.dispose();
-            tempDiv.remove();
         }
     }
 

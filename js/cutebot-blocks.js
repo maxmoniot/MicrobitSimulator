@@ -325,7 +325,10 @@
             this.setTooltip("Régler la vitesse des roues (-100 à 100)");
         },
         onchange: function() {
-            if (!this.workspace) return;
+            if (!this.workspace || this.isInFlyout) return;
+            // Pas de changement d'icône pendant qu'un champ est en cours de saisie :
+            // l'icône décalait le bloc sous la souris (il fallait recliquer).
+            if (Blockly.WidgetDiv.isVisible()) return;
             
             // Récupérer les valeurs des inputs
             const leftBlock = this.getInputTargetBlock('LEFT_SPEED');
@@ -349,7 +352,7 @@
                 }
             }
             
-            this.setWarningText(warning);
+            this.setWarningText(warning, 'puissance');
         }
     };
 
@@ -378,7 +381,10 @@
             this.setTooltip("Avancer dans une direction pendant un temps donné");
         },
         onchange: function() {
-            if (!this.workspace) return;
+            if (!this.workspace || this.isInFlyout) return;
+            // Pas de changement d'icône pendant qu'un champ est en cours de saisie :
+            // l'icône décalait le bloc sous la souris (il fallait recliquer).
+            if (Blockly.WidgetDiv.isVisible()) return;
             
             // Récupérer la valeur de vitesse
             const speedBlock = this.getInputTargetBlock('SPEED');
@@ -392,7 +398,7 @@
                 }
             }
             
-            this.setWarningText(warning);
+            this.setWarningText(warning, 'puissance');
         }
     };
 
