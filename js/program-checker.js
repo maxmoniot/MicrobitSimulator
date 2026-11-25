@@ -7,6 +7,8 @@
  *   - le bloc fautif est entouré de rouge et porte une icône ⚠ avec le message ;
  *   - la valeur fautive (nombre) passe en rouge ;
  *   - un panneau liste les erreurs ; un clic amène au bloc.
+ * Bloque aussi la radio sans « définir groupe radio » et le RFID sans
+ * « initialiser RFID » (table REQUIRES).
  * Les marques se mettent à jour en direct pendant que l'élève corrige.
  *
  * Astuce enseignant (non affichée) : Ctrl + clic (Cmd + clic sur Mac) sur le
@@ -129,6 +131,22 @@
         portillon_servo_set_range: rangeOrder
     };
 
+    // Blocs qui ne marchent pas sans un bloc de réglage présent (et exécuté) dans le programme
+    const REQUIRES = [
+        {
+            needs: 'radio_set_group',
+            // Sur la vraie carte, c'est ce bloc qui allume la radio (radio.on() dans hex-generator.js)
+            users: ['radio_send_number', 'radio_send_string', 'radio_send_value',
+                'radio_on_received_number', 'radio_on_received_string', 'radio_received_packet'],
+            msg: 'Ton programme utilise la radio sans le bloc « définir groupe radio » : la carte ne pourra ni envoyer ni recevoir. Ajoute ce bloc dans « au démarrage », avec le même numéro de groupe sur les cartes qui doivent se parler.'
+        },
+        {
+            needs: 'rfid_init',
+            users: ['rfid_get_id', 'rfid_read', 'rfid_write', 'rfid_antenna_off'],
+            msg: 'Ton programme utilise le module RFID sans le bloc « initialiser RFID » : ajoute ce bloc dans « au démarrage », avant de lire ou d\'écrire une carte.'
+        }
+    ];
+
     function rangeOrder(b) {
         const lo = literal(b, 'MIN'), hi = literal(b, 'MAX');
         if (lo && hi && lo.value >= hi.value) {
@@ -234,6 +252,15 @@
         for (const [name, blocks] of reads) {
             if (assigned.has(name)) continue;
             errors.push({ blocks, message: `La variable « ${name} » est utilisée mais ne reçoit jamais de valeur : ajoute un bloc « définir ${name} à … » (par exemple dans « au démarrage »).` });
+        }
+
+        // Radio sans groupe, RFID sans initialisation… (un bloc désactivé ne compte pas)
+        const live = (b) => b.isEnabled() && !(b.getInheritedDisabled && b.getInheritedDisabled());
+        for (const req of REQUIRES) {
+            const users = executed.filter(b => req.users.includes(b.type) && live(b));
+            if (!users.length) continue;
+            if (executed.some(b => b.type === req.needs && live(b))) continue;
+            errors.push({ blocks: users, message: req.msg });
         }
 
         // Ordre de lecture : de haut en bas, puis de gauche à droite
